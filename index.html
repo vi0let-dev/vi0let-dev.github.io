@@ -138,9 +138,19 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">1</span>
+          <span class="site-state-item-count">4</span>
           <span class="site-state-item-name">posts</span>
         </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">tags</span></a>
       </div>
   </nav>
 </div>
@@ -165,7 +175,7 @@
   
 
   <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2026/06/21/hello-world/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2026/06/21/pwn/%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA(%E6%9C%AC%E5%9C%B0%E3%80%81%E5%A4%8D%E7%8E%B0)/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.jpg">
@@ -183,7 +193,7 @@
     </span>
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
-          <a href="/2026/06/21/hello-world/" class="post-title-link" itemprop="url">Hello World</a>
+          <a href="/2026/06/21/pwn/%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA(%E6%9C%AC%E5%9C%B0%E3%80%81%E5%A4%8D%E7%8E%B0)/" class="post-title-link" itemprop="url">复现题目环境的搭建</a>
         </h2>
 
         <div class="post-meta-container">
@@ -194,7 +204,23 @@
       </span>
       <span class="post-meta-item-text">Posted on</span>
 
-      <time title="Created: 2026-06-21 11:59:50" itemprop="dateCreated datePublished" datetime="2026-06-21T11:59:50+08:00">2026-06-21</time>
+      <time title="Created: 2026-06-21 13:24:36" itemprop="dateCreated datePublished" datetime="2026-06-21T13:24:36+08:00">2026-06-21</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-05-08 21:48:01" itemprop="dateModified" datetime="2023-05-08T21:48:01+08:00">2023-05-08</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/CTF/" itemprop="url" rel="index"><span itemprop="name">CTF</span></a>
+        </span>
     </span>
 
   
@@ -207,20 +233,297 @@
     
     
     <div class="post-body" itemprop="articleBody">
-          <p>Welcome to <a target="_blank" rel="noopener" href="https://hexo.io/">Hexo</a>! This is your very first post. Check <a target="_blank" rel="noopener" href="https://hexo.io/docs/">documentation</a> for more info. If you get any problems when using Hexo, you can find the answer in <a target="_blank" rel="noopener" href="https://hexo.io/docs/troubleshooting.html">troubleshooting</a> or you can ask me on <a target="_blank" rel="noopener" href="https://github.com/hexojs/hexo/issues">GitHub</a>.</p>
-<h2 id="Quick-Start"><a href="#Quick-Start" class="headerlink" title="Quick Start"></a>Quick Start</h2><h3 id="Create-a-new-post"><a href="#Create-a-new-post" class="headerlink" title="Create a new post"></a>Create a new post</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo new <span class="string">&quot;My New Post&quot;</span></span><br></pre></td></tr></table></figure>
+          <h1 id="复现题目的环境搭建"><a href="#复现题目的环境搭建" class="headerlink" title="复现题目的环境搭建"></a>复现题目的环境搭建</h1><h2 id="使用socat"><a href="#使用socat" class="headerlink" title="使用socat"></a>使用socat</h2><p>借鉴的博客：</p>
+<p><a target="_blank" rel="noopener" href="https://xineting.github.io/2018/10/01/pwn%E9%A2%98%E7%9B%AE%E7%9A%84%E6%90%AD%E5%BB%BA/">https://xineting.github.io/2018/10/01/pwn%E9%A2%98%E7%9B%AE%E7%9A%84%E6%90%AD%E5%BB%BA/</a></p>
+<h2 id="使用ctf-xinetd-ctf竞赛权威指南-pwn篇"><a href="#使用ctf-xinetd-ctf竞赛权威指南-pwn篇" class="headerlink" title="使用ctf-xinetd(ctf竞赛权威指南 pwn篇)"></a>使用ctf-xinetd(ctf竞赛权威指南 pwn篇)</h2><p>Linux版本：Ubuntu16.04</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/2026/06/21/pwn/%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA(%E6%9C%AC%E5%9C%B0%E3%80%81%E5%A4%8D%E7%8E%B0)/#more" rel="contents">
+                Read more &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
 
-<p>More info: <a target="_blank" rel="noopener" href="https://hexo.io/docs/writing.html">Writing</a></p>
-<h3 id="Run-server"><a href="#Run-server" class="headerlink" title="Run server"></a>Run server</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo server</span><br></pre></td></tr></table></figure>
+    
+    
+    
 
-<p>More info: <a target="_blank" rel="noopener" href="https://hexo.io/docs/server.html">Server</a></p>
-<h3 id="Generate-static-files"><a href="#Generate-static-files" class="headerlink" title="Generate static files"></a>Generate static files</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo generate</span><br></pre></td></tr></table></figure>
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
 
-<p>More info: <a target="_blank" rel="noopener" href="https://hexo.io/docs/generating.html">Generating</a></p>
-<h3 id="Deploy-to-remote-sites"><a href="#Deploy-to-remote-sites" class="headerlink" title="Deploy to remote sites"></a>Deploy to remote sites</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo deploy</span><br></pre></td></tr></table></figure>
 
-<p>More info: <a target="_blank" rel="noopener" href="https://hexo.io/docs/one-command-deployment.html">Deployment</a></p>
 
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2026/06/21/pwn/%E6%A0%88%E6%BA%A2%E5%87%BA/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="vi0let">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="vi0let's blog">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content=" | vi0let's blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/2026/06/21/pwn/%E6%A0%88%E6%BA%A2%E5%87%BA/" class="post-title-link" itemprop="url">CTF-Wiki之栈溢出</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2026-06-21 13:24:36" itemprop="dateCreated datePublished" datetime="2026-06-21T13:24:36+08:00">2026-06-21</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-05-08 21:46:12" itemprop="dateModified" datetime="2023-05-08T21:46:12+08:00">2023-05-08</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/CTF/" itemprop="url" rel="index"><span itemprop="name">CTF</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+          <h1 id="栈溢出"><a href="#栈溢出" class="headerlink" title="栈溢出"></a>栈溢出</h1><p>网站：<a target="_blank" rel="noopener" href="https://ctf-wiki.org/">https://ctf-wiki.org/</a></p>
+<p>附言：所有的学习均在本地测试，远程可以使用socat或者docker部署</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/2026/06/21/pwn/%E6%A0%88%E6%BA%A2%E5%87%BA/#more" rel="contents">
+                Read more &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2026/06/21/pwn/%E6%A0%88%E5%AF%B9%E9%BD%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="vi0let">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="vi0let's blog">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content=" | vi0let's blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/2026/06/21/pwn/%E6%A0%88%E5%AF%B9%E9%BD%90/" class="post-title-link" itemprop="url">栈对齐</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2026-06-21 13:24:36" itemprop="dateCreated datePublished" datetime="2026-06-21T13:24:36+08:00">2026-06-21</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-05-08 21:45:59" itemprop="dateModified" datetime="2023-05-08T21:45:59+08:00">2023-05-08</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/CTF/" itemprop="url" rel="index"><span itemprop="name">CTF</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+          <h1 id="栈对齐"><a href="#栈对齐" class="headerlink" title="栈对齐"></a>栈对齐</h1><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>太菜了QWQ，困惑了很久(主要是在脚本中不知道该怎么进行gdb调试)，今天下午研究了一下，造成最后攻击失败的结果应该是<code>movaps</code>指令搞的鬼，经过测试Ubuntu20里有这个问题，Ubuntu16没有。<code>movaps</code>指令要求其目的操作数必须是16的倍数，也就是说其操作数的数值的16进制数的<strong>最后一位</strong>必须为0，这里看一个例子更容易理解§(<em>￣▽￣</em>)§</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/2026/06/21/pwn/%E6%A0%88%E5%AF%B9%E9%BD%90/#more" rel="contents">
+                Read more &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2026/06/21/pwn/pwn%E5%AD%A6%E4%B9%A0%E8%B7%AF%E7%BA%BF/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="vi0let">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="vi0let's blog">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content=" | vi0let's blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/2026/06/21/pwn/pwn%E5%AD%A6%E4%B9%A0%E8%B7%AF%E7%BA%BF/" class="post-title-link" itemprop="url">pwn学习路线</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2026-06-21 13:24:36" itemprop="dateCreated datePublished" datetime="2026-06-21T13:24:36+08:00">2026-06-21</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2022-07-10 17:50:32" itemprop="dateModified" datetime="2022-07-10T17:50:32+08:00">2022-07-10</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/CTF/" itemprop="url" rel="index"><span itemprop="name">CTF</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+          <p>CTFwiki：<a target="_blank" rel="noopener" href="https://ctf-wiki.org/pwn/linux/user-mode/environment/">https://ctf-wiki.org/pwn/linux/user-mode/environment/</a></p>
+<h1 id="Linux环境"><a href="#Linux环境" class="headerlink" title="Linux环境"></a>Linux环境</h1><h2 id="学习pwn需要的环境和工具"><a href="#学习pwn需要的环境和工具" class="headerlink" title="学习pwn需要的环境和工具"></a>学习pwn需要的环境和工具</h2><p>需要安装python的第三方库pwntools、gdb的增强版pwndbg、ruby语言里的Onegadget，其他的工具任意，具体安装步骤在B站的星盟pwn讲学的第一章(pwn环境的搭建)。</p>
+<p>ida可以到爱盘(吾爱破解)里面找到</p>
+<p>Ubuntu我装的是20</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/2026/06/21/pwn/pwn%E5%AD%A6%E4%B9%A0%E8%B7%AF%E7%BA%BF/#more" rel="contents">
+                Read more &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
       
     </div>
 
